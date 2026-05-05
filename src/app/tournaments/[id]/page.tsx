@@ -403,42 +403,77 @@ export default async function TournamentPublicPage({ params, searchParams }: Pag
                   No Knockout matches available yet.
                 </p>
               ) : (
-                <div className="mt-4 overflow-x-auto">
-                  <table className="w-full min-w-[560px] text-left text-sm">
-                    <thead className="border-b border-black/10 dark:border-white/10">
-                      <tr>
-                        <th className="px-2 py-2 font-medium">Round</th>
-                        <th className="px-2 py-2 font-medium">Home</th>
-                        <th className="px-2 py-2 font-medium">Away</th>
-                        <th className="px-2 py-2 font-medium hidden sm:table-cell">Scheduled</th>
-                        <th className="px-2 py-2 font-medium">Score</th>
-                        <th className="px-2 py-2 font-medium hidden sm:table-cell">Winner</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {knockoutMatches.map((match) => (
-                        <tr key={match.id} className="border-b border-black/5 dark:border-white/10">
-                          <td className="px-2 py-2">{formatKnockoutRound(match.round)}</td>
-                          <td className="px-2 py-2">{match.homePlayer.fullName}</td>
-                          <td className="px-2 py-2">{match.awayPlayer.fullName}</td>
-                          <td className="px-2 py-2 hidden sm:table-cell">
-                            {match.scheduledAt ? match.scheduledAt.toLocaleString() : "-"}
-                          </td>
-                          <td className="px-2 py-2">
-                            {match.homeGames ?? "-"} - {match.awayGames ?? "-"}
-                          </td>
-                          <td className="px-2 py-2 hidden sm:table-cell">
-                            {match.winnerId === match.homePlayerId
-                              ? match.homePlayer.fullName
-                              : match.winnerId === match.awayPlayerId
-                                ? match.awayPlayer.fullName
-                                : "-"}
-                          </td>
+                <>
+                  <div className="mt-4 space-y-3 sm:hidden">
+                    {knockoutMatches.map((match) => (
+                      <article
+                        key={`${match.id}-mobile-knockout`}
+                        className="rounded-lg border border-black/10 bg-white p-3 dark:border-white/10 dark:bg-zinc-950"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-xs font-semibold">{formatKnockoutRound(match.round)}</p>
+                          <span className="rounded-full bg-zinc-900 px-2 py-1 text-[11px] font-medium text-white dark:bg-zinc-100 dark:text-zinc-900">
+                            Knockout
+                          </span>
+                        </div>
+                        <p className="mt-2 text-sm font-semibold">
+                          {match.homePlayer.fullName} vs {match.awayPlayer.fullName}
+                        </p>
+                        <p className="mt-2 text-sm font-semibold">
+                          Score: {match.homeGames ?? "-"} - {match.awayGames ?? "-"}
+                        </p>
+                        <p className="mt-1 text-[11px] text-zinc-600 dark:text-zinc-300">
+                          Scheduled: {match.scheduledAt ? match.scheduledAt.toLocaleString() : "-"}
+                        </p>
+                        <p className="mt-1 text-[11px] text-zinc-600 dark:text-zinc-300">
+                          Winner:{" "}
+                          {match.winnerId === match.homePlayerId
+                            ? match.homePlayer.fullName
+                            : match.winnerId === match.awayPlayerId
+                              ? match.awayPlayer.fullName
+                              : "-"}
+                        </p>
+                      </article>
+                    ))}
+                  </div>
+
+                  <div className="mt-4 hidden overflow-x-auto sm:block">
+                    <table className="w-full min-w-[700px] text-left text-sm">
+                      <thead className="border-b border-black/10 dark:border-white/10">
+                        <tr>
+                          <th className="px-2 py-2 font-medium">Round</th>
+                          <th className="px-2 py-2 font-medium">Home</th>
+                          <th className="px-2 py-2 font-medium">Away</th>
+                          <th className="px-2 py-2 font-medium">Scheduled</th>
+                          <th className="px-2 py-2 font-medium">Score</th>
+                          <th className="px-2 py-2 font-medium">Winner</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody>
+                        {knockoutMatches.map((match) => (
+                          <tr key={match.id} className="border-b border-black/5 dark:border-white/10">
+                            <td className="px-2 py-2">{formatKnockoutRound(match.round)}</td>
+                            <td className="px-2 py-2">{match.homePlayer.fullName}</td>
+                            <td className="px-2 py-2">{match.awayPlayer.fullName}</td>
+                            <td className="px-2 py-2">
+                              {match.scheduledAt ? match.scheduledAt.toLocaleString() : "-"}
+                            </td>
+                            <td className="px-2 py-2">
+                              {match.homeGames ?? "-"} - {match.awayGames ?? "-"}
+                            </td>
+                            <td className="px-2 py-2">
+                              {match.winnerId === match.homePlayerId
+                                ? match.homePlayer.fullName
+                                : match.winnerId === match.awayPlayerId
+                                  ? match.awayPlayer.fullName
+                                  : "-"}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
               )}
             </>
           )}
