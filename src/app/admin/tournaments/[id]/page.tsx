@@ -933,11 +933,11 @@ export default async function TournamentControlPage({ params, searchParams }: Pa
   };
 
   return (
-    <div className="min-h-screen bg-zinc-50 px-6 py-12 text-zinc-900 dark:bg-black dark:text-zinc-100">
+    <div className="min-h-screen bg-zinc-50 px-3 py-6 text-zinc-900 dark:bg-black dark:text-zinc-100 sm:px-6 sm:py-12">
       <main className="mx-auto w-full max-w-6xl">
-        <div className="mb-8 flex items-center justify-between">
+        <div className="mb-6 flex flex-col gap-3 sm:mb-8 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-3xl font-semibold tracking-tight">{tournament.name}</h1>
+            <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{tournament.name}</h1>
             <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">
               Tournament control panel
             </p>
@@ -972,17 +972,17 @@ export default async function TournamentControlPage({ params, searchParams }: Pa
           </div>
           <Link
             href="/admin"
-            className="rounded-md border border-black/10 px-3 py-2 text-sm hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+            className="inline-block rounded-md border border-black/10 px-3 py-2 text-sm hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
           >
             Back to Admin
           </Link>
         </div>
 
-        <section className="rounded-xl border border-black/10 bg-white p-6 dark:border-white/10 dark:bg-zinc-950">
-          <div className="flex flex-wrap gap-2 border-b border-black/10 pb-4 dark:border-white/10">
+        <section className="rounded-xl border border-black/10 bg-white p-4 dark:border-white/10 dark:bg-zinc-950 sm:p-6">
+          <div className="grid grid-cols-2 gap-2 border-b border-black/10 pb-4 dark:border-white/10 sm:flex sm:flex-wrap">
             <Link
               href={`/admin/tournaments/${tournament.id}?tab=tournament-details`}
-              className={`rounded-md px-3 py-2 text-sm ${
+              className={`rounded-md px-3 py-2 text-center text-sm ${
                 activeTab === "tournament-details"
                   ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
                   : "border border-black/10 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
@@ -992,7 +992,7 @@ export default async function TournamentControlPage({ params, searchParams }: Pa
             </Link>
             <Link
               href={`/admin/tournaments/${tournament.id}?tab=rules`}
-              className={`rounded-md px-3 py-2 text-sm ${
+              className={`rounded-md px-3 py-2 text-center text-sm ${
                 activeTab === "rules"
                   ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
                   : "border border-black/10 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
@@ -1002,7 +1002,7 @@ export default async function TournamentControlPage({ params, searchParams }: Pa
             </Link>
             <Link
               href={`/admin/tournaments/${tournament.id}?tab=players`}
-              className={`rounded-md px-3 py-2 text-sm ${
+              className={`rounded-md px-3 py-2 text-center text-sm ${
                 activeTab === "players"
                   ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
                   : "border border-black/10 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
@@ -1012,7 +1012,7 @@ export default async function TournamentControlPage({ params, searchParams }: Pa
             </Link>
             <Link
               href={`/admin/tournaments/${tournament.id}?tab=schedule-results`}
-              className={`rounded-md px-3 py-2 text-sm ${
+              className={`rounded-md px-3 py-2 text-center text-sm ${
                 activeTab === "schedule-results"
                   ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
                   : "border border-black/10 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
@@ -1106,7 +1106,7 @@ export default async function TournamentControlPage({ params, searchParams }: Pa
                 <div className="sm:col-span-2">
                   <button
                     type="submit"
-                    className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+                    className="w-full rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 sm:w-auto dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
                   >
                     Save Tournament
                   </button>
@@ -1123,7 +1123,7 @@ export default async function TournamentControlPage({ params, searchParams }: Pa
                   <input type="hidden" name="tournamentId" value={tournament.id} />
                   <button
                     type="submit"
-                    className="rounded-md border border-black/15 px-4 py-2 text-sm font-medium hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+                    className="w-full rounded-md border border-black/15 px-4 py-2 text-sm font-medium hover:bg-black/5 sm:w-auto dark:border-white/20 dark:hover:bg-white/10"
                   >
                     Auto-Assign Players to Groups
                   </button>
@@ -1144,7 +1144,7 @@ export default async function TournamentControlPage({ params, searchParams }: Pa
                 <div className="sm:col-span-4">
                   <button
                     type="submit"
-                    className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+                    className="w-full rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 sm:w-auto dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
                   >
                     Add Player
                   </button>
@@ -1222,7 +1222,7 @@ export default async function TournamentControlPage({ params, searchParams }: Pa
                     <div className="mt-3">
                       <button
                         type="submit"
-                        className="rounded-md border border-black/15 px-4 py-2 text-sm font-medium hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+                        className="w-full rounded-md border border-black/15 px-4 py-2 text-sm font-medium hover:bg-black/5 sm:w-auto dark:border-white/20 dark:hover:bg-white/10"
                       >
                         Save Group Assignments
                       </button>
@@ -1236,10 +1236,10 @@ export default async function TournamentControlPage({ params, searchParams }: Pa
           {activeTab === "schedule-results" && (
             <>
               <h2 className="mt-6 text-lg font-medium">Schedule and Results</h2>
-              <div className="mt-3 flex flex-wrap gap-2">
+              <div className="mt-3 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
                 <Link
                   href={`/admin/tournaments/${tournament.id}?tab=schedule-results&scheduleTab=group`}
-                  className={`rounded-md px-3 py-2 text-sm ${
+                  className={`rounded-md px-3 py-2 text-center text-sm ${
                     activeScheduleTab === "group"
                       ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
                       : "border border-black/10 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
@@ -1249,7 +1249,7 @@ export default async function TournamentControlPage({ params, searchParams }: Pa
                 </Link>
                 <Link
                   href={`/admin/tournaments/${tournament.id}?tab=schedule-results&scheduleTab=knockout`}
-                  className={`rounded-md px-3 py-2 text-sm ${
+                  className={`rounded-md px-3 py-2 text-center text-sm ${
                     activeScheduleTab === "knockout"
                       ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
                       : "border border-black/10 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
@@ -1263,7 +1263,7 @@ export default async function TournamentControlPage({ params, searchParams }: Pa
                   <input type="hidden" name="tournamentId" value={tournament.id} />
                   <button
                     type="submit"
-                    className="rounded-md border border-black/15 px-4 py-2 text-sm font-medium hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+                    className="w-full rounded-md border border-black/15 px-4 py-2 text-sm font-medium hover:bg-black/5 sm:w-auto dark:border-white/20 dark:hover:bg-white/10"
                   >
                     Generate Group Matches
                   </button>
@@ -1282,14 +1282,14 @@ export default async function TournamentControlPage({ params, searchParams }: Pa
                   </p>
                 ) : (
                   <div className="mt-4 overflow-x-auto">
-                    <table className="w-full min-w-[700px] text-left text-sm">
+                    <table className="w-full min-w-[560px] text-left text-sm">
                       <thead className="border-b border-black/10 dark:border-white/10">
                         <tr>
                           <th className="px-2 py-2 font-medium">Round</th>
                           <th className="px-2 py-2 font-medium">Home</th>
                           <th className="px-2 py-2 font-medium">Away</th>
-                          <th className="px-2 py-2 font-medium">Scheduled</th>
-                          <th className="px-2 py-2 font-medium">Winner</th>
+                          <th className="px-2 py-2 font-medium hidden sm:table-cell">Scheduled</th>
+                          <th className="px-2 py-2 font-medium hidden sm:table-cell">Winner</th>
                           <th className="px-2 py-2 font-medium">Result</th>
                         </tr>
                       </thead>
@@ -1301,10 +1301,10 @@ export default async function TournamentControlPage({ params, searchParams }: Pa
                             <td className="px-2 py-2">{match.round}</td>
                             <td className="px-2 py-2">{match.homePlayer.fullName}</td>
                             <td className="px-2 py-2">{match.awayPlayer.fullName}</td>
-                            <td className="px-2 py-2">
+                            <td className="px-2 py-2 hidden sm:table-cell">
                               {match.scheduledAt ? match.scheduledAt.toLocaleString() : "-"}
                             </td>
-                            <td className="px-2 py-2">
+                            <td className="px-2 py-2 hidden sm:table-cell">
                               {match.winnerId === match.homePlayerId
                                 ? match.homePlayer.fullName
                                 : match.winnerId === match.awayPlayerId
@@ -1366,7 +1366,7 @@ export default async function TournamentControlPage({ params, searchParams }: Pa
                       <input type="hidden" name="tournamentId" value={tournament.id} />
                       <button
                         type="submit"
-                        className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+                        className="w-full rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 sm:w-auto dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
                       >
                         Check and Qualify Players Now
                       </button>
@@ -1375,7 +1375,7 @@ export default async function TournamentControlPage({ params, searchParams }: Pa
                       <input type="hidden" name="tournamentId" value={tournament.id} />
                       <button
                         type="submit"
-                        className="rounded-md border border-black/15 px-4 py-2 text-sm font-medium hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+                        className="w-full rounded-md border border-black/15 px-4 py-2 text-sm font-medium hover:bg-black/5 sm:w-auto dark:border-white/20 dark:hover:bg-white/10"
                       >
                         Generate Knockout Matches
                       </button>
@@ -1384,7 +1384,7 @@ export default async function TournamentControlPage({ params, searchParams }: Pa
                       <input type="hidden" name="tournamentId" value={tournament.id} />
                       <button
                         type="submit"
-                        className="rounded-md border border-black/15 px-4 py-2 text-sm font-medium hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+                        className="w-full rounded-md border border-black/15 px-4 py-2 text-sm font-medium hover:bg-black/5 sm:w-auto dark:border-white/20 dark:hover:bg-white/10"
                       >
                         Generate Final from SF Winners
                       </button>
@@ -1422,7 +1422,7 @@ export default async function TournamentControlPage({ params, searchParams }: Pa
                           >
                             <p className="text-sm font-medium">Group {groupNumber}</p>
                             <div className="mt-2 overflow-x-auto">
-                              <table className="w-full min-w-[720px] text-left text-xs">
+                              <table className="w-full min-w-[560px] text-left text-xs">
                                 <thead className="border-b border-black/10 dark:border-white/10">
                                   <tr>
                                     <th className="px-2 py-2">#</th>
@@ -1430,10 +1430,10 @@ export default async function TournamentControlPage({ params, searchParams }: Pa
                                     <th className="px-2 py-2">P</th>
                                     <th className="px-2 py-2">W</th>
                                     <th className="px-2 py-2">L</th>
-                                    <th className="px-2 py-2">GW</th>
-                                    <th className="px-2 py-2">GL</th>
-                                    <th className="px-2 py-2">Diff</th>
-                                    <th className="px-2 py-2">Game Points</th>
+                                    <th className="px-2 py-2 hidden sm:table-cell">GW</th>
+                                    <th className="px-2 py-2 hidden sm:table-cell">GL</th>
+                                    <th className="px-2 py-2 hidden sm:table-cell">Diff</th>
+                                    <th className="px-2 py-2 hidden sm:table-cell">Game Points</th>
                                   </tr>
                                 </thead>
                                 <tbody>
@@ -1447,10 +1447,10 @@ export default async function TournamentControlPage({ params, searchParams }: Pa
                                       <td className="px-2 py-2">{row.played}</td>
                                       <td className="px-2 py-2">{row.wins}</td>
                                       <td className="px-2 py-2">{row.losses}</td>
-                                      <td className="px-2 py-2">{row.gamesWon}</td>
-                                      <td className="px-2 py-2">{row.gamesLost}</td>
-                                      <td className="px-2 py-2">{row.gamesWon - row.gamesLost}</td>
-                                      <td className="px-2 py-2">{row.gamePoints}</td>
+                                      <td className="px-2 py-2 hidden sm:table-cell">{row.gamesWon}</td>
+                                      <td className="px-2 py-2 hidden sm:table-cell">{row.gamesLost}</td>
+                                      <td className="px-2 py-2 hidden sm:table-cell">{row.gamesWon - row.gamesLost}</td>
+                                      <td className="px-2 py-2 hidden sm:table-cell">{row.gamePoints}</td>
                                     </tr>
                                   ))}
                                 </tbody>
@@ -1467,14 +1467,14 @@ export default async function TournamentControlPage({ params, searchParams }: Pa
                                 </p>
                               ) : (
                                 <div className="mt-2 overflow-x-auto">
-                                  <table className="w-full min-w-[700px] text-left text-xs">
+                                  <table className="w-full min-w-[560px] text-left text-xs">
                                     <thead className="border-b border-black/10 dark:border-white/10">
                                       <tr>
                                         <th className="px-2 py-2 font-medium">Home</th>
                                         <th className="px-2 py-2 font-medium">Away</th>
-                                        <th className="px-2 py-2 font-medium">Schedule</th>
+                                        <th className="px-2 py-2 font-medium hidden sm:table-cell">Schedule</th>
                                         <th className="px-2 py-2 font-medium">Score</th>
-                                        <th className="px-2 py-2 font-medium">Winner</th>
+                                        <th className="px-2 py-2 font-medium hidden sm:table-cell">Winner</th>
                                       </tr>
                                     </thead>
                                     <tbody>
@@ -1485,7 +1485,7 @@ export default async function TournamentControlPage({ params, searchParams }: Pa
                                         >
                                           <td className="px-2 py-2">{match.homePlayer.fullName}</td>
                                           <td className="px-2 py-2">{match.awayPlayer.fullName}</td>
-                                          <td className="px-2 py-2">
+                                          <td className="px-2 py-2 hidden sm:table-cell">
                                             <form
                                               action={updateMatchResult}
                                               className="flex items-center gap-2"
@@ -1540,7 +1540,7 @@ export default async function TournamentControlPage({ params, searchParams }: Pa
                                           <td className="px-2 py-2">
                                             {match.homeGames ?? "-"} - {match.awayGames ?? "-"}
                                           </td>
-                                          <td className="px-2 py-2">
+                                          <td className="px-2 py-2 hidden sm:table-cell">
                                             {match.winnerId === match.homePlayerId
                                               ? match.homePlayer.fullName
                                               : match.winnerId === match.awayPlayerId
@@ -1664,7 +1664,7 @@ export default async function TournamentControlPage({ params, searchParams }: Pa
                   <div className="sm:col-span-2">
                     <button
                       type="submit"
-                      className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+                      className="w-full rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 sm:w-auto dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
                     >
                       Save Round Robin Rules
                     </button>

@@ -75,18 +75,18 @@ export default async function AdminPage() {
 
     return (
       <div className="mt-4 overflow-x-auto">
-        <table className="w-full min-w-[640px] text-left text-sm">
+        <table className="w-full min-w-[560px] text-left text-sm">
           <thead className="border-b border-black/10 dark:border-white/10">
             <tr>
               <th className="px-2 py-2 font-medium">Name</th>
-              <th className="px-2 py-2 font-medium">Type</th>
+              <th className="px-2 py-2 font-medium hidden sm:table-cell">Type</th>
               <th className="px-2 py-2 font-medium">Category</th>
-              <th className="px-2 py-2 font-medium">Players</th>
-              <th className="px-2 py-2 font-medium">Group Setup</th>
-              <th className="px-2 py-2 font-medium">Qualify/Group</th>
-              <th className="px-2 py-2 font-medium">Location</th>
-              <th className="px-2 py-2 font-medium">Start</th>
-              <th className="px-2 py-2 font-medium">End</th>
+              <th className="px-2 py-2 font-medium hidden sm:table-cell">Players</th>
+              <th className="px-2 py-2 font-medium hidden md:table-cell">Group Setup</th>
+              <th className="px-2 py-2 font-medium hidden md:table-cell">Qualify/Group</th>
+              <th className="px-2 py-2 font-medium hidden sm:table-cell">Location</th>
+              <th className="px-2 py-2 font-medium hidden sm:table-cell">Start</th>
+              <th className="px-2 py-2 font-medium hidden sm:table-cell">End</th>
               <th className="px-2 py-2 font-medium">Control</th>
             </tr>
           </thead>
@@ -97,26 +97,26 @@ export default async function AdminPage() {
                 className="border-b border-black/5 dark:border-white/10"
               >
                 <td className="px-2 py-2">{tournament.name}</td>
-                <td className="px-2 py-2">
+                <td className="px-2 py-2 hidden sm:table-cell">
                   {tournament.format === TournamentFormat.KNOCKOUT
                     ? "Knockout"
                     : "Round Robin + Knockout"}
                 </td>
                 <td className="px-2 py-2">{tournament.category ?? "-"}</td>
-                <td className="px-2 py-2">{tournament.maxPlayers ?? "-"}</td>
-                <td className="px-2 py-2">
+                <td className="px-2 py-2 hidden sm:table-cell">{tournament.maxPlayers ?? "-"}</td>
+                <td className="px-2 py-2 hidden md:table-cell">
                   {tournament.format === TournamentFormat.ROUND_ROBIN_AND_KNOCKOUT
                     ? `${tournament.groupCount ?? "-"} x ${tournament.playersPerGroup ?? "-"}`
                     : "-"}
                 </td>
-                <td className="px-2 py-2">
+                <td className="px-2 py-2 hidden md:table-cell">
                   {tournament.format === TournamentFormat.ROUND_ROBIN_AND_KNOCKOUT
                     ? tournament.qualifiedPerGroup ?? "-"
                     : "-"}
                 </td>
-                <td className="px-2 py-2">{tournament.location ?? "-"}</td>
-                <td className="px-2 py-2">{tournament.startsAt.toLocaleString()}</td>
-                <td className="px-2 py-2">{tournament.endsAt.toLocaleString()}</td>
+                <td className="px-2 py-2 hidden sm:table-cell">{tournament.location ?? "-"}</td>
+                <td className="px-2 py-2 hidden sm:table-cell">{tournament.startsAt.toLocaleString()}</td>
+                <td className="px-2 py-2 hidden sm:table-cell">{tournament.endsAt.toLocaleString()}</td>
                 <td className="px-2 py-2">
                   <Link
                     href={`/admin/tournaments/${tournament.id}`}
@@ -134,24 +134,24 @@ export default async function AdminPage() {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-50 px-6 py-12 text-zinc-900 dark:bg-black dark:text-zinc-100">
+    <div className="min-h-screen bg-zinc-50 px-3 py-6 text-zinc-900 dark:bg-black dark:text-zinc-100 sm:px-6 sm:py-12">
       <main className="mx-auto w-full max-w-5xl">
-        <div className="mb-8 flex items-center justify-between">
+        <div className="mb-6 flex flex-col gap-3 sm:mb-8 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-3xl font-semibold tracking-tight">Tournament Admin</h1>
+            <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Tournament Admin</h1>
             <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">
               Create and manage tennis tournaments.
             </p>
           </div>
           <Link
             href="/"
-            className="rounded-md border border-black/10 px-3 py-2 text-sm hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+            className="inline-block rounded-md border border-black/10 px-3 py-2 text-sm hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
           >
             Back to Home
           </Link>
         </div>
 
-        <section className="rounded-xl border border-black/10 bg-white p-6 dark:border-white/10 dark:bg-zinc-950">
+        <section className="rounded-xl border border-black/10 bg-white p-4 dark:border-white/10 dark:bg-zinc-950 sm:p-6">
           <h2 className="text-lg font-medium">Create tournament</h2>
           <form action={createTournament} className="mt-4 grid gap-4 sm:grid-cols-2">
             <label className="flex flex-col gap-2">
@@ -239,7 +239,7 @@ export default async function AdminPage() {
             <div className="sm:col-span-2">
               <button
                 type="submit"
-                className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+                className="w-full rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 sm:w-auto dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
               >
                 Create Tournament
               </button>
@@ -247,17 +247,17 @@ export default async function AdminPage() {
           </form>
         </section>
 
-        <section className="mt-8 rounded-xl border border-black/10 bg-white p-6 dark:border-white/10 dark:bg-zinc-950">
+        <section className="mt-6 rounded-xl border border-black/10 bg-white p-4 dark:border-white/10 dark:bg-zinc-950 sm:mt-8 sm:p-6">
           <h2 className="text-lg font-medium">Running tournaments</h2>
           {renderTournamentTable(runningTournaments, "No tournaments are currently running.")}
         </section>
 
-        <section className="mt-8 rounded-xl border border-black/10 bg-white p-6 dark:border-white/10 dark:bg-zinc-950">
+        <section className="mt-6 rounded-xl border border-black/10 bg-white p-4 dark:border-white/10 dark:bg-zinc-950 sm:mt-8 sm:p-6">
           <h2 className="text-lg font-medium">Upcoming tournaments</h2>
           {renderTournamentTable(upcomingTournaments, "No upcoming tournaments yet.")}
         </section>
 
-        <section className="mt-8 rounded-xl border border-black/10 bg-white p-6 dark:border-white/10 dark:bg-zinc-950">
+        <section className="mt-6 rounded-xl border border-black/10 bg-white p-4 dark:border-white/10 dark:bg-zinc-950 sm:mt-8 sm:p-6">
           <h2 className="text-lg font-medium">Completed tournaments</h2>
           {renderTournamentTable(completedTournaments, "No tournaments have completed yet.")}
         </section>
