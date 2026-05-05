@@ -71,7 +71,7 @@ export default async function Home() {
       <main className="mx-auto w-full max-w-5xl">
         <header className="rounded-2xl border border-black/10 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-zinc-950 sm:p-8">
           <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-            Welcome to Limassol Tennis and Padel Accademy Tournaments
+            Welcome to Tennis Accademy Limassol Tournaments
           </h1>
         </header>
 
