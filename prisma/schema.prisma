@@ -1,0 +1,75 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum TournamentFormat {
+  KNOCKOUT
+  ROUND_ROBIN_AND_KNOCKOUT
+}
+
+enum MatchSetupType {
+  NORMAL_SET
+  SHORT_SET_TO_4
+}
+
+model Tournament {
+  id           String           @id @default(cuid())
+  name         String
+  organizer    String?
+  category     String?
+  maxPlayers   Int?
+  format       TournamentFormat @default(KNOCKOUT)
+  groupCount   Int?
+  playersPerGroup Int?
+  qualifiedPerGroup Int?
+  qualifyBestSecond Boolean @default(false)
+  qualifyBestThird  Boolean @default(false)
+  matchSetupType MatchSetupType @default(NORMAL_SET)
+  numberOfSets Int @default(1)
+  standingsUseGamePoints Boolean @default(false)
+  location     String?
+  startsAt     DateTime
+  endsAt       DateTime
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  players      Player[]
+  matches      Match[]
+}
+
+model Player {
+  id           String      @id @default(cuid())
+  fullName     String
+  countryCode  String?     @db.VarChar(3)
+  ranking      Int?
+  groupNumber  Int?
+  knockoutQualified Boolean @default(false)
+  tournamentId String
+  tournament   Tournament  @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  homeMatches  Match[]     @relation("home_player")
+  awayMatches  Match[]     @relation("away_player")
+}
+
+model Match {
+  id             String      @id @default(cuid())
+  round          String
+  scheduledAt    DateTime?
+  winnerId       String?
+  homeGames      Int?
+  awayGames      Int?
+  tournamentId   String
+  homePlayerId   String
+  awayPlayerId   String
+  tournament     Tournament  @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  homePlayer     Player      @relation("home_player", fields: [homePlayerId], references: [id], onDelete: Restrict)
+  awayPlayer     Player      @relation("away_player", fields: [awayPlayerId], references: [id], onDelete: Restrict)
+}

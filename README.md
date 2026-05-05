@@ -1,3 +1,57 @@
+# Tennis Tournament Website
+
+This project is configured for:
+
+- Next.js (App Router)
+- Prisma ORM
+- Neon PostgreSQL
+- Railway deployment
+
+## 1) Connect Neon
+
+1. Create a Neon project and database.
+2. Copy the Neon connection string.
+3. Update `.env`:
+
+```bash
+DATABASE_URL="postgresql://<NEON_USER>:<NEON_PASSWORD>@<NEON_HOST>/<NEON_DB>?sslmode=require"
+```
+
+## 2) Create database schema
+
+Run:
+
+```bash
+npm run db:migrate -- --name init
+npm run db:generate
+```
+
+This will create your initial tables (`Tournament`, `Player`, `Match`) in Neon.
+
+## 3) Run locally
+
+```bash
+npm run dev
+```
+
+## 4) Deploy to Railway
+
+1. Push this project to GitHub.
+2. In Railway, create a **New Project** from your GitHub repo.
+3. In Railway service variables, add:
+   - `DATABASE_URL` (the same Neon URL)
+4. Railway will automatically run `npm install` and `npm run build`.
+5. Set start command to:
+
+```bash
+npm run start
+```
+
+## Useful commands
+
+- `npm run db:migrate -- --name <migration-name>`
+- `npm run db:generate`
+- `npm run db:studio`
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
