@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import * as XLSX from "xlsx";
 
-import { MatchSetupType, TournamentFormat } from "@/generated/prisma/enums";
+import { MatchSetupType, TournamentFormat } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 type PageProps = {

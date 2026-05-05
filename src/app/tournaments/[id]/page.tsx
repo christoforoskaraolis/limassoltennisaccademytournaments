@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { TournamentFormat } from "@prisma/client";
 
 import AutoRefresh from "@/app/components/AutoRefresh";
-import { TournamentFormat } from "@/generated/prisma/enums";
 import { prisma } from "@/lib/prisma";
 
 type PageProps = {

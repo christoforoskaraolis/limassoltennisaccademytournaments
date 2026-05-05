@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { revalidatePath } from "next/cache";
 
-import { TournamentFormat } from "@/generated/prisma/enums";
+import { TournamentFormat } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 async function createTournament(formData: FormData) {
