@@ -3,8 +3,10 @@ import { notFound, redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import * as XLSX from "xlsx";
 
+import MatchResultForm from "@/app/components/MatchResultForm";
 import PlayerEditRow from "@/app/components/PlayerEditRow";
 import { MatchSetupType, TournamentFormat } from "@prisma/client";
+import { buildScheduledAt, formatMatchScheduleDisplay, parseCourt } from "@/lib/match-schedule";
 import { prisma } from "@/lib/prisma";
 
 type PageProps = {
@@ -779,29 +781,62 @@ async function updateMatchResult(formData: FormData) {
   const awayPlayerId = String(formData.get("awayPlayerId") ?? "");
   const homeGamesRaw = String(formData.get("homeGames") ?? "").trim();
   const awayGamesRaw = String(formData.get("awayGames") ?? "").trim();
-  const scheduledAtRaw = String(formData.get("scheduledAt") ?? "").trim();
+  const scheduledTimeRaw = String(formData.get("scheduledTime") ?? "").trim();
+  const courtRaw = String(formData.get("court") ?? "").trim();
 
   if (!matchId || !tournamentId || !homePlayerId || !awayPlayerId) {
     return;
   }
 
-  const parsedHome = homeGamesRaw ? Number.parseInt(homeGamesRaw, 10) : null;
-  const parsedAway = awayGamesRaw ? Number.parseInt(awayGamesRaw, 10) : null;
-  const homeGames = Number.isNaN(parsedHome) ? null : parsedHome;
-  const awayGames = Number.isNaN(parsedAway) ? null : parsedAway;
+  const existingMatch = await prisma.match.findUnique({
+    where: { id: matchId },
+    select: {
+      homeGames: true,
+      awayGames: true,
+      winnerId: true,
+    },
+  });
 
-  if (homeGames === null || awayGames === null || homeGames < 0 || awayGames < 0) {
+  if (!existingMatch) {
     return;
   }
 
-  const parsedScheduledAt = scheduledAtRaw ? new Date(scheduledAtRaw) : null;
-  const scheduledAt =
-    parsedScheduledAt && !Number.isNaN(parsedScheduledAt.getTime()) ? parsedScheduledAt : null;
+  const tournament = await prisma.tournament.findUnique({
+    where: { id: tournamentId },
+    select: { startsAt: true },
+  });
 
-  let winnerId: string | null = null;
-  if (homeGames !== awayGames) {
-    winnerId = homeGames > awayGames ? homePlayerId : awayPlayerId;
+  if (!tournament) {
+    return;
   }
+
+  let homeGames = existingMatch.homeGames;
+  let awayGames = existingMatch.awayGames;
+  let winnerId = existingMatch.winnerId;
+
+  const hasHomeScore = homeGamesRaw.length > 0;
+  const hasAwayScore = awayGamesRaw.length > 0;
+
+  if (hasHomeScore || hasAwayScore) {
+    if (!hasHomeScore || !hasAwayScore) {
+      return;
+    }
+
+    const parsedHome = Number.parseInt(homeGamesRaw, 10);
+    const parsedAway = Number.parseInt(awayGamesRaw, 10);
+
+    if (Number.isNaN(parsedHome) || Number.isNaN(parsedAway) || parsedHome < 0 || parsedAway < 0) {
+      return;
+    }
+
+    homeGames = parsedHome;
+    awayGames = parsedAway;
+    winnerId =
+      homeGames !== awayGames ? (homeGames > awayGames ? homePlayerId : awayPlayerId) : null;
+  }
+
+  const scheduledAt = buildScheduledAt(tournament.startsAt, scheduledTimeRaw);
+  const court = parseCourt(courtRaw);
 
   await prisma.match.update({
     where: { id: matchId },
@@ -810,6 +845,7 @@ async function updateMatchResult(formData: FormData) {
       awayGames,
       winnerId,
       scheduledAt,
+      court,
     },
   });
 
@@ -878,6 +914,7 @@ async function updateMatchResult(formData: FormData) {
   }
 
   revalidatePath(`/admin/tournaments/${tournamentId}`);
+  revalidatePath(`/tournaments/${tournamentId}`);
 }
 
 export default async function TournamentControlPage({ params, searchParams }: PageProps) {
@@ -1324,9 +1361,9 @@ export default async function TournamentControlPage({ params, searchParams }: Pa
                           <th className="px-2 py-2 font-medium">Round</th>
                           <th className="px-2 py-2 font-medium">Home</th>
                           <th className="px-2 py-2 font-medium">Away</th>
-                          <th className="px-2 py-2 font-medium hidden sm:table-cell">Scheduled</th>
+                          <th className="px-2 py-2 font-medium hidden sm:table-cell">Schedule</th>
                           <th className="px-2 py-2 font-medium hidden sm:table-cell">Winner</th>
-                          <th className="px-2 py-2 font-medium">Result</th>
+                          <th className="px-2 py-2 font-medium">Time / Court / Score</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1338,7 +1375,7 @@ export default async function TournamentControlPage({ params, searchParams }: Pa
                             <td className="px-2 py-2">{match.homePlayer.fullName}</td>
                             <td className="px-2 py-2">{match.awayPlayer.fullName}</td>
                             <td className="px-2 py-2 hidden sm:table-cell">
-                              {match.scheduledAt ? match.scheduledAt.toLocaleString() : "-"}
+                              {formatMatchScheduleDisplay(match.scheduledAt, match.court)}
                             </td>
                             <td className="px-2 py-2 hidden sm:table-cell">
                               {match.winnerId === match.homePlayerId
@@ -1348,41 +1385,17 @@ export default async function TournamentControlPage({ params, searchParams }: Pa
                                   : "-"}
                             </td>
                             <td className="px-2 py-2">
-                              <form action={updateMatchResult} className="flex items-center gap-2">
-                                <input type="hidden" name="matchId" value={match.id} />
-                                <input type="hidden" name="tournamentId" value={tournament.id} />
-                                <input type="hidden" name="homePlayerId" value={match.homePlayerId} />
-                                <input type="hidden" name="awayPlayerId" value={match.awayPlayerId} />
-                                <input
-                                  name="scheduledAt"
-                                  type="datetime-local"
-                                  defaultValue={
-                                    match.scheduledAt ? datetimeValue(match.scheduledAt) : ""
-                                  }
-                                  className="rounded-md border border-black/15 px-2 py-1 text-xs dark:border-white/20"
-                                />
-                                <input
-                                  name="homeGames"
-                                  type="number"
-                                  min={0}
-                                  defaultValue={match.homeGames ?? ""}
-                                  className="w-16 rounded-md border border-black/15 px-2 py-1 text-xs dark:border-white/20"
-                                />
-                                <span>-</span>
-                                <input
-                                  name="awayGames"
-                                  type="number"
-                                  min={0}
-                                  defaultValue={match.awayGames ?? ""}
-                                  className="w-16 rounded-md border border-black/15 px-2 py-1 text-xs dark:border-white/20"
-                                />
-                                <button
-                                  type="submit"
-                                  className="rounded-md border border-black/15 px-2 py-1 text-xs hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
-                                >
-                                  Save
-                                </button>
-                              </form>
+                              <MatchResultForm
+                                matchId={match.id}
+                                tournamentId={tournament.id}
+                                homePlayerId={match.homePlayerId}
+                                awayPlayerId={match.awayPlayerId}
+                                initialScheduledAt={match.scheduledAt}
+                                initialCourt={match.court}
+                                initialHomeGames={match.homeGames}
+                                initialAwayGames={match.awayGames}
+                                updateMatchResult={updateMatchResult}
+                              />
                             </td>
                           </tr>
                         ))}
@@ -1509,7 +1522,8 @@ export default async function TournamentControlPage({ params, searchParams }: Pa
                                         <th className="px-2 py-2 font-medium">Home</th>
                                         <th className="px-2 py-2 font-medium">Away</th>
                                         <th className="px-2 py-2 font-medium hidden sm:table-cell">Schedule</th>
-                                        <th className="px-2 py-2 font-medium">Score</th>
+                                        <th className="px-2 py-2 font-medium">Time / Court / Score</th>
+                                        <th className="px-2 py-2 font-medium hidden sm:table-cell">Score</th>
                                         <th className="px-2 py-2 font-medium hidden sm:table-cell">Winner</th>
                                       </tr>
                                     </thead>
@@ -1522,58 +1536,23 @@ export default async function TournamentControlPage({ params, searchParams }: Pa
                                           <td className="px-2 py-2">{match.homePlayer.fullName}</td>
                                           <td className="px-2 py-2">{match.awayPlayer.fullName}</td>
                                           <td className="px-2 py-2 hidden sm:table-cell">
-                                            <form
-                                              action={updateMatchResult}
-                                              className="flex items-center gap-2"
-                                            >
-                                              <input type="hidden" name="matchId" value={match.id} />
-                                              <input
-                                                type="hidden"
-                                                name="tournamentId"
-                                                value={tournament.id}
-                                              />
-                                              <input
-                                                type="hidden"
-                                                name="homePlayerId"
-                                                value={match.homePlayerId}
-                                              />
-                                              <input
-                                                type="hidden"
-                                                name="awayPlayerId"
-                                                value={match.awayPlayerId}
-                                              />
-                                              <input
-                                                name="scheduledAt"
-                                                type="datetime-local"
-                                                defaultValue={
-                                                  match.scheduledAt ? datetimeValue(match.scheduledAt) : ""
-                                                }
-                                                className="rounded-md border border-black/15 px-2 py-1 text-xs dark:border-white/20"
-                                              />
-                                              <input
-                                                name="homeGames"
-                                                type="number"
-                                                min={0}
-                                                defaultValue={match.homeGames ?? ""}
-                                                className="w-14 rounded-md border border-black/15 px-2 py-1 text-xs dark:border-white/20"
-                                              />
-                                              <span>-</span>
-                                              <input
-                                                name="awayGames"
-                                                type="number"
-                                                min={0}
-                                                defaultValue={match.awayGames ?? ""}
-                                                className="w-14 rounded-md border border-black/15 px-2 py-1 text-xs dark:border-white/20"
-                                              />
-                                              <button
-                                                type="submit"
-                                                className="rounded-md border border-black/15 px-2 py-1 text-xs hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
-                                              >
-                                                Save
-                                              </button>
-                                            </form>
+                                            {formatMatchScheduleDisplay(match.scheduledAt, match.court)}
                                           </td>
                                           <td className="px-2 py-2">
+                                            <MatchResultForm
+                                              matchId={match.id}
+                                              tournamentId={tournament.id}
+                                              homePlayerId={match.homePlayerId}
+                                              awayPlayerId={match.awayPlayerId}
+                                              initialScheduledAt={match.scheduledAt}
+                                              initialCourt={match.court}
+                                              initialHomeGames={match.homeGames}
+                                              initialAwayGames={match.awayGames}
+                                              updateMatchResult={updateMatchResult}
+                                              compact
+                                            />
+                                          </td>
+                                          <td className="px-2 py-2 hidden sm:table-cell">
                                             {match.homeGames ?? "-"} - {match.awayGames ?? "-"}
                                           </td>
                                           <td className="px-2 py-2 hidden sm:table-cell">

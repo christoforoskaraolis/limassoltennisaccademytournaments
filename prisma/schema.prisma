@@ -62,6 +62,7 @@ model Match {
   id             String      @id @default(cuid())
   round          String
   scheduledAt    DateTime?
+  court          Int?
   winnerId       String?
   homeGames      Int?
   awayGames      Int?

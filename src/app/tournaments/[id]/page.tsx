@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { TournamentFormat } from "@prisma/client";
 
 import AutoRefresh from "@/app/components/AutoRefresh";
+import { formatMatchScheduleDisplay } from "@/lib/match-schedule";
 import { prisma } from "@/lib/prisma";
 
 type PageProps = {
@@ -334,7 +335,8 @@ export default async function TournamentPublicPage({ params, searchParams }: Pag
                                       Score: {match.homeGames ?? "-"} - {match.awayGames ?? "-"}
                                     </p>
                                     <p className="mt-1 text-[11px] text-zinc-600 dark:text-zinc-300">
-                                      Scheduled: {match.scheduledAt ? match.scheduledAt.toLocaleString() : "-"}
+                                      Schedule:{" "}
+                                      {formatMatchScheduleDisplay(match.scheduledAt, match.court)}
                                     </p>
                                     <p className="mt-1 text-[11px] text-zinc-600 dark:text-zinc-300">
                                       Winner:{" "}
@@ -354,7 +356,7 @@ export default async function TournamentPublicPage({ params, searchParams }: Pag
                                   <tr>
                                     <th className="px-2 py-2 font-medium">Home</th>
                                     <th className="px-2 py-2 font-medium">Away</th>
-                                    <th className="px-2 py-2 font-medium">Scheduled</th>
+                                    <th className="px-2 py-2 font-medium">Schedule</th>
                                     <th className="px-2 py-2 font-medium">Score</th>
                                     <th className="px-2 py-2 font-medium">Winner</th>
                                   </tr>
@@ -368,7 +370,7 @@ export default async function TournamentPublicPage({ params, searchParams }: Pag
                                       <td className="px-2 py-2">{match.homePlayer.fullName}</td>
                                       <td className="px-2 py-2">{match.awayPlayer.fullName}</td>
                                       <td className="px-2 py-2">
-                                        {match.scheduledAt ? match.scheduledAt.toLocaleString() : "-"}
+                                        {formatMatchScheduleDisplay(match.scheduledAt, match.court)}
                                       </td>
                                       <td className="px-2 py-2">
                                         {match.homeGames ?? "-"} - {match.awayGames ?? "-"}
@@ -423,7 +425,7 @@ export default async function TournamentPublicPage({ params, searchParams }: Pag
                           Score: {match.homeGames ?? "-"} - {match.awayGames ?? "-"}
                         </p>
                         <p className="mt-1 text-[11px] text-zinc-600 dark:text-zinc-300">
-                          Scheduled: {match.scheduledAt ? match.scheduledAt.toLocaleString() : "-"}
+                          Schedule: {formatMatchScheduleDisplay(match.scheduledAt, match.court)}
                         </p>
                         <p className="mt-1 text-[11px] text-zinc-600 dark:text-zinc-300">
                           Winner:{" "}
@@ -444,7 +446,7 @@ export default async function TournamentPublicPage({ params, searchParams }: Pag
                           <th className="px-2 py-2 font-medium">Round</th>
                           <th className="px-2 py-2 font-medium">Home</th>
                           <th className="px-2 py-2 font-medium">Away</th>
-                          <th className="px-2 py-2 font-medium">Scheduled</th>
+                          <th className="px-2 py-2 font-medium">Schedule</th>
                           <th className="px-2 py-2 font-medium">Score</th>
                           <th className="px-2 py-2 font-medium">Winner</th>
                         </tr>
@@ -456,7 +458,7 @@ export default async function TournamentPublicPage({ params, searchParams }: Pag
                             <td className="px-2 py-2">{match.homePlayer.fullName}</td>
                             <td className="px-2 py-2">{match.awayPlayer.fullName}</td>
                             <td className="px-2 py-2">
-                              {match.scheduledAt ? match.scheduledAt.toLocaleString() : "-"}
+                              {formatMatchScheduleDisplay(match.scheduledAt, match.court)}
                             </td>
                             <td className="px-2 py-2">
                               {match.homeGames ?? "-"} - {match.awayGames ?? "-"}
