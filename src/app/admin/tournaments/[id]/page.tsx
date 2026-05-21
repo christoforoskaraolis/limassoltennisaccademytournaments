@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import * as XLSX from "xlsx";
 
-import DeletePlayerButton from "@/app/components/DeletePlayerButton";
+import PlayerEditRow from "@/app/components/PlayerEditRow";
 import { MatchSetupType, TournamentFormat } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
@@ -1248,73 +1248,22 @@ export default async function TournamentControlPage({ params, searchParams }: Pa
                       </tr>
                     </thead>
                     <tbody>
-                      {tournament.players.map((player) => {
-                        const playerFormId = `player-form-${player.id}`;
-
-                        return (
-                          <tr key={player.id} className="border-b border-black/5 dark:border-white/10">
-                            <td className="px-2 py-2">
-                              <input
-                                form={playerFormId}
-                                name="fullName"
-                                defaultValue={player.fullName}
-                                required
-                                className="w-full min-w-[140px] rounded-md border border-black/15 bg-transparent px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-zinc-500 dark:border-white/20"
-                              />
-                            </td>
-                            {tournament.format === TournamentFormat.ROUND_ROBIN_AND_KNOCKOUT && (
-                              <td className="px-2 py-2">
-                                <select
-                                  form={playerFormId}
-                                  name="groupNumber"
-                                  defaultValue={player.groupNumber ? String(player.groupNumber) : ""}
-                                  className="w-full rounded-md border border-black/15 px-2 py-1 text-xs dark:border-white/20"
-                                >
-                                  <option value="">Unassigned</option>
-                                  {Array.from({ length: tournament.groupCount ?? 0 }, (_, index) => (
-                                    <option key={index + 1} value={String(index + 1)}>
-                                      Group {index + 1}
-                                    </option>
-                                  ))}
-                                </select>
-                              </td>
-                            )}
-                            <td className="px-2 py-2">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <button
-                                  type="submit"
-                                  form={playerFormId}
-                                  className="rounded-md border border-black/15 px-2 py-1 text-xs hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
-                                >
-                                  Save
-                                </button>
-                                <DeletePlayerButton
-                                  playerId={player.id}
-                                  tournamentId={tournament.id}
-                                  deletePlayer={deletePlayer}
-                                />
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
+                      {tournament.players.map((player) => (
+                        <tr key={player.id} className="border-b border-black/5 dark:border-white/10">
+                          <PlayerEditRow
+                            playerId={player.id}
+                            tournamentId={tournament.id}
+                            initialFullName={player.fullName}
+                            initialGroupNumber={player.groupNumber}
+                            groupCount={tournament.groupCount}
+                            showGroup={tournament.format === TournamentFormat.ROUND_ROBIN_AND_KNOCKOUT}
+                            updatePlayer={updatePlayer}
+                            deletePlayer={deletePlayer}
+                          />
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
-                  {tournament.players.map((player) => {
-                    const playerFormId = `player-form-${player.id}`;
-
-                    return (
-                      <form
-                        key={`${player.id}-form`}
-                        id={playerFormId}
-                        action={updatePlayer}
-                        className="hidden"
-                      >
-                        <input type="hidden" name="playerId" value={player.id} />
-                        <input type="hidden" name="tournamentId" value={tournament.id} />
-                      </form>
-                    );
-                  })}
                 </div>
               )}
             </>
