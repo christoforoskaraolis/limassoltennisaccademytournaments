@@ -1253,34 +1253,32 @@ export default async function TournamentControlPage({ params, searchParams }: Pa
 
                         return (
                           <tr key={player.id} className="border-b border-black/5 dark:border-white/10">
-                            <form id={playerFormId} action={updatePlayer} className="contents">
-                              <input type="hidden" name="playerId" value={player.id} />
-                              <input type="hidden" name="tournamentId" value={tournament.id} />
+                            <td className="px-2 py-2">
+                              <input
+                                form={playerFormId}
+                                name="fullName"
+                                defaultValue={player.fullName}
+                                required
+                                className="w-full min-w-[140px] rounded-md border border-black/15 bg-transparent px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-zinc-500 dark:border-white/20"
+                              />
+                            </td>
+                            {tournament.format === TournamentFormat.ROUND_ROBIN_AND_KNOCKOUT && (
                               <td className="px-2 py-2">
-                                <input
-                                  name="fullName"
-                                  defaultValue={player.fullName}
-                                  required
-                                  className="w-full min-w-[140px] rounded-md border border-black/15 bg-transparent px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-zinc-500 dark:border-white/20"
-                                />
+                                <select
+                                  form={playerFormId}
+                                  name="groupNumber"
+                                  defaultValue={player.groupNumber ? String(player.groupNumber) : ""}
+                                  className="w-full rounded-md border border-black/15 px-2 py-1 text-xs dark:border-white/20"
+                                >
+                                  <option value="">Unassigned</option>
+                                  {Array.from({ length: tournament.groupCount ?? 0 }, (_, index) => (
+                                    <option key={index + 1} value={String(index + 1)}>
+                                      Group {index + 1}
+                                    </option>
+                                  ))}
+                                </select>
                               </td>
-                              {tournament.format === TournamentFormat.ROUND_ROBIN_AND_KNOCKOUT && (
-                                <td className="px-2 py-2">
-                                  <select
-                                    name="groupNumber"
-                                    defaultValue={player.groupNumber ? String(player.groupNumber) : ""}
-                                    className="w-full rounded-md border border-black/15 px-2 py-1 text-xs dark:border-white/20"
-                                  >
-                                    <option value="">Unassigned</option>
-                                    {Array.from({ length: tournament.groupCount ?? 0 }, (_, index) => (
-                                      <option key={index + 1} value={String(index + 1)}>
-                                        Group {index + 1}
-                                      </option>
-                                    ))}
-                                  </select>
-                                </td>
-                              )}
-                            </form>
+                            )}
                             <td className="px-2 py-2">
                               <div className="flex flex-wrap items-center gap-2">
                                 <button
@@ -1302,6 +1300,21 @@ export default async function TournamentControlPage({ params, searchParams }: Pa
                       })}
                     </tbody>
                   </table>
+                  {tournament.players.map((player) => {
+                    const playerFormId = `player-form-${player.id}`;
+
+                    return (
+                      <form
+                        key={`${player.id}-form`}
+                        id={playerFormId}
+                        action={updatePlayer}
+                        className="hidden"
+                      >
+                        <input type="hidden" name="playerId" value={player.id} />
+                        <input type="hidden" name="tournamentId" value={tournament.id} />
+                      </form>
+                    );
+                  })}
                 </div>
               )}
             </>
