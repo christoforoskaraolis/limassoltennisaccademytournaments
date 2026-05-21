@@ -159,7 +159,7 @@ export default async function TournamentPublicPage({ params, searchParams }: Pag
 
   return (
     <div className="min-h-screen bg-zinc-50 px-3 py-6 text-zinc-900 dark:bg-black dark:text-zinc-100 sm:px-6 sm:py-12">
-      <AutoRefresh intervalMs={3000} />
+      <AutoRefresh intervalMs={5000} />
       <main className="mx-auto w-full max-w-6xl">
         <header className="rounded-xl border border-black/10 bg-white p-4 dark:border-white/10 dark:bg-zinc-950 sm:p-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">

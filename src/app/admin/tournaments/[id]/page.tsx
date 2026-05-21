@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import * as XLSX from "xlsx";
 
+import DeletePlayerButton from "@/app/components/DeletePlayerButton";
 import { MatchSetupType, TournamentFormat } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
@@ -564,6 +565,108 @@ async function addPlayer(formData: FormData) {
   revalidatePath(`/admin/tournaments/${tournamentId}`);
 }
 
+async function updatePlayer(formData: FormData) {
+  "use server";
+
+  const playerId = String(formData.get("playerId") ?? "");
+  const tournamentId = String(formData.get("tournamentId") ?? "");
+  const fullName = String(formData.get("fullName") ?? "").trim();
+  const groupNumberRaw = String(formData.get("groupNumber") ?? "").trim();
+
+  if (!playerId || !tournamentId || !fullName) {
+    return;
+  }
+
+  const tournament = await prisma.tournament.findUnique({
+    where: { id: tournamentId },
+    select: { format: true, groupCount: true },
+  });
+
+  if (!tournament) {
+    return;
+  }
+
+  const player = await prisma.player.findUnique({
+    where: { id: playerId },
+    select: { tournamentId: true },
+  });
+
+  if (!player || player.tournamentId !== tournamentId) {
+    return;
+  }
+
+  let groupNumber: number | null = null;
+  if (tournament.format === TournamentFormat.ROUND_ROBIN_AND_KNOCKOUT) {
+    const parsedGroup = groupNumberRaw ? Number.parseInt(groupNumberRaw, 10) : null;
+    groupNumber = Number.isNaN(parsedGroup) ? null : parsedGroup;
+    if (
+      groupNumber !== null &&
+      tournament.groupCount &&
+      (groupNumber < 1 || groupNumber > tournament.groupCount)
+    ) {
+      groupNumber = null;
+    }
+  }
+
+  await prisma.player.update({
+    where: { id: playerId },
+    data: {
+      fullName,
+      ...(tournament.format === TournamentFormat.ROUND_ROBIN_AND_KNOCKOUT
+        ? { groupNumber }
+        : {}),
+    },
+  });
+
+  if (tournament.format === TournamentFormat.ROUND_ROBIN_AND_KNOCKOUT) {
+    await ensureRoundRobinGroupMatches(tournamentId);
+  }
+
+  revalidatePath(`/admin/tournaments/${tournamentId}`);
+}
+
+async function deletePlayer(formData: FormData) {
+  "use server";
+
+  const playerId = String(formData.get("playerId") ?? "");
+  const tournamentId = String(formData.get("tournamentId") ?? "");
+
+  if (!playerId || !tournamentId) {
+    return;
+  }
+
+  const player = await prisma.player.findUnique({
+    where: { id: playerId },
+    select: { tournamentId: true },
+  });
+
+  if (!player || player.tournamentId !== tournamentId) {
+    return;
+  }
+
+  await prisma.$transaction([
+    prisma.match.deleteMany({
+      where: {
+        OR: [{ homePlayerId: playerId }, { awayPlayerId: playerId }],
+      },
+    }),
+    prisma.player.delete({
+      where: { id: playerId },
+    }),
+  ]);
+
+  const tournament = await prisma.tournament.findUnique({
+    where: { id: tournamentId },
+    select: { format: true },
+  });
+
+  if (tournament?.format === TournamentFormat.ROUND_ROBIN_AND_KNOCKOUT) {
+    await ensureRoundRobinGroupMatches(tournamentId);
+  }
+
+  revalidatePath(`/admin/tournaments/${tournamentId}`);
+}
+
 async function autoAssignGroups(formData: FormData) {
   "use server";
 
@@ -605,54 +708,6 @@ async function autoAssignGroups(formData: FormData) {
   await ensureRoundRobinGroupMatches(tournamentId);
 
   revalidatePath(`/admin/tournaments/${tournamentId}`);
-}
-
-async function saveAllPlayerGroups(formData: FormData) {
-  "use server";
-
-  const tournamentId = String(formData.get("tournamentId") ?? "");
-  if (!tournamentId) {
-    return;
-  }
-
-  const tournament = await prisma.tournament.findUnique({
-    where: { id: tournamentId },
-    select: { format: true, groupCount: true },
-  });
-
-  if (
-    !tournament ||
-    tournament.format !== TournamentFormat.ROUND_ROBIN_AND_KNOCKOUT ||
-    !tournament.groupCount
-  ) {
-    return;
-  }
-
-  const groupEntries = [...formData.entries()].filter(([key]) => key.startsWith("group_"));
-
-  await prisma.$transaction(
-    groupEntries.map(([key, value]) => {
-      const playerId = key.replace("group_", "");
-      const rawValue = String(value ?? "").trim();
-      const parsedGroup = rawValue ? Number.parseInt(rawValue, 10) : null;
-      const groupNumber = Number.isNaN(parsedGroup) ? null : parsedGroup;
-
-      const safeGroupNumber =
-        groupNumber !== null && (groupNumber < 1 || groupNumber > tournament.groupCount!)
-          ? null
-          : groupNumber;
-
-      return prisma.player.update({
-        where: { id: playerId },
-        data: { groupNumber: safeGroupNumber },
-      });
-    }),
-  );
-
-  await ensureRoundRobinGroupMatches(tournamentId);
-
-  revalidatePath(`/admin/tournaments/${tournamentId}`);
-  redirect(`/admin/tournaments/${tournamentId}?tab=players`);
 }
 
 async function importPlayersFromExcel(formData: FormData) {
@@ -1181,54 +1236,73 @@ export default async function TournamentControlPage({ params, searchParams }: Pa
               {tournament.players.length === 0 ? (
                 <p className="mt-4 text-sm text-zinc-600 dark:text-zinc-300">No players added yet.</p>
               ) : (
-                <form action={saveAllPlayerGroups} className="mt-4">
-                  <input type="hidden" name="tournamentId" value={tournament.id} />
-                  <div className="overflow-x-auto">
-                    <table className="w-full min-w-[560px] text-left text-sm">
-                      <thead className="border-b border-black/10 dark:border-white/10">
-                        <tr>
-                          <th className="px-2 py-2 font-medium">Name</th>
-                          {tournament.format === TournamentFormat.ROUND_ROBIN_AND_KNOCKOUT && (
-                            <th className="px-2 py-2 font-medium">Group</th>
-                          )}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {tournament.players.map((player) => (
+                <div className="mt-4 overflow-x-auto">
+                  <table className="w-full min-w-[640px] text-left text-sm">
+                    <thead className="border-b border-black/10 dark:border-white/10">
+                      <tr>
+                        <th className="px-2 py-2 font-medium">Name</th>
+                        {tournament.format === TournamentFormat.ROUND_ROBIN_AND_KNOCKOUT && (
+                          <th className="px-2 py-2 font-medium">Group</th>
+                        )}
+                        <th className="px-2 py-2 font-medium">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {tournament.players.map((player) => {
+                        const playerFormId = `player-form-${player.id}`;
+
+                        return (
                           <tr key={player.id} className="border-b border-black/5 dark:border-white/10">
-                            <td className="px-2 py-2">{player.fullName}</td>
-                            {tournament.format === TournamentFormat.ROUND_ROBIN_AND_KNOCKOUT && (
+                            <form id={playerFormId} action={updatePlayer} className="contents">
+                              <input type="hidden" name="playerId" value={player.id} />
+                              <input type="hidden" name="tournamentId" value={tournament.id} />
                               <td className="px-2 py-2">
-                                <select
-                                  name={`group_${player.id}`}
-                                  defaultValue={player.groupNumber ? String(player.groupNumber) : ""}
-                                  className="rounded-md border border-black/15 px-2 py-1 text-xs dark:border-white/20"
-                                >
-                                  <option value="">Unassigned</option>
-                                  {Array.from({ length: tournament.groupCount ?? 0 }, (_, index) => (
-                                    <option key={index + 1} value={String(index + 1)}>
-                                      Group {index + 1}
-                                    </option>
-                                  ))}
-                                </select>
+                                <input
+                                  name="fullName"
+                                  defaultValue={player.fullName}
+                                  required
+                                  className="w-full min-w-[140px] rounded-md border border-black/15 bg-transparent px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-zinc-500 dark:border-white/20"
+                                />
                               </td>
-                            )}
+                              {tournament.format === TournamentFormat.ROUND_ROBIN_AND_KNOCKOUT && (
+                                <td className="px-2 py-2">
+                                  <select
+                                    name="groupNumber"
+                                    defaultValue={player.groupNumber ? String(player.groupNumber) : ""}
+                                    className="w-full rounded-md border border-black/15 px-2 py-1 text-xs dark:border-white/20"
+                                  >
+                                    <option value="">Unassigned</option>
+                                    {Array.from({ length: tournament.groupCount ?? 0 }, (_, index) => (
+                                      <option key={index + 1} value={String(index + 1)}>
+                                        Group {index + 1}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </td>
+                              )}
+                            </form>
+                            <td className="px-2 py-2">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <button
+                                  type="submit"
+                                  form={playerFormId}
+                                  className="rounded-md border border-black/15 px-2 py-1 text-xs hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+                                >
+                                  Save
+                                </button>
+                                <DeletePlayerButton
+                                  playerId={player.id}
+                                  tournamentId={tournament.id}
+                                  deletePlayer={deletePlayer}
+                                />
+                              </div>
+                            </td>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  {tournament.format === TournamentFormat.ROUND_ROBIN_AND_KNOCKOUT && (
-                    <div className="mt-3">
-                      <button
-                        type="submit"
-                        className="w-full rounded-md border border-black/15 px-4 py-2 text-sm font-medium hover:bg-black/5 sm:w-auto dark:border-white/20 dark:hover:bg-white/10"
-                      >
-                        Save Group Assignments
-                      </button>
-                    </div>
-                  )}
-                </form>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </>
           )}
