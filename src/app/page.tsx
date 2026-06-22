@@ -67,7 +67,7 @@ export default async function Home() {
 
   return (
     <div className="min-h-screen bg-zinc-50 px-3 py-6 text-zinc-900 dark:bg-black dark:text-zinc-100 sm:px-6 sm:py-12">
-      <AutoRefresh intervalMs={5000} />
+      <AutoRefresh enabled={liveTournaments.length > 0} />
       <main className="mx-auto w-full max-w-5xl">
         <header className="rounded-2xl border border-black/10 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-zinc-950 sm:p-8">
           <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
