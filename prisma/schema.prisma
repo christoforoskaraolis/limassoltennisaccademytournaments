@@ -19,6 +19,7 @@ enum TournamentFormat {
 enum MatchSetupType {
   NORMAL_SET
   SHORT_SET_TO_4
+  BEST_OF_3_SUPER_TIEBREAK
 }
 
 enum EventType {

@@ -5,6 +5,10 @@ import { EventType, TournamentFormat } from "@prisma/client";
 import AutoRefresh from "@/app/components/AutoRefresh";
 import { formatEntryName, formatEntryVersus } from "@/lib/entry-name";
 import { formatMatchScheduleDisplay } from "@/lib/match-schedule";
+import {
+  formatMatchScoreDisplay,
+  isBestOfThreeSuperTiebreak,
+} from "@/lib/match-setup";
 import { prisma } from "@/lib/prisma";
 
 type PageProps = {
@@ -150,6 +154,7 @@ export default async function TournamentPublicPage({ params, searchParams }: Pag
   const tournamentStatus =
     now < tournament.startsAt ? "Upcoming" : now > tournament.endsAt ? "Completed" : "Live";
   const isDoubles = tournament.eventType === EventType.DOUBLES;
+  const useSetsScoring = isBestOfThreeSuperTiebreak(tournament.matchSetupType);
   const knockoutMatches = tournament.matches
     .filter((match) => !match.round.startsWith("Group "))
     .sort((a, b) => {
@@ -285,12 +290,14 @@ export default async function TournamentPublicPage({ params, searchParams }: Pag
                                 <th className="px-2 py-2">P</th>
                                 <th className="px-2 py-2">W</th>
                                 <th className="px-2 py-2">L</th>
-                                <th className="px-2 py-2">GW</th>
-                                <th className="px-2 py-2">GL</th>
-                                <th className="px-2 py-2">Diff</th>
-                                {tournament.standingsUseGamePoints && (
-                                  <th className="px-2 py-2">Game Points</th>
-                                )}
+                                    <th className="px-2 py-2">{useSetsScoring ? "SW" : "GW"}</th>
+                                    <th className="px-2 py-2">{useSetsScoring ? "SL" : "GL"}</th>
+                                    <th className="px-2 py-2">Diff</th>
+                                    {tournament.standingsUseGamePoints && (
+                                      <th className="px-2 py-2">
+                                        {useSetsScoring ? "Set Points" : "Game Points"}
+                                      </th>
+                                    )}
                               </tr>
                             </thead>
                             <tbody>
@@ -340,7 +347,12 @@ export default async function TournamentPublicPage({ params, searchParams }: Pag
                                       )}
                                     </p>
                                     <p className="mt-2 text-sm font-semibold">
-                                      Score: {match.homeGames ?? "-"} - {match.awayGames ?? "-"}
+                                      Score:{" "}
+                                      {formatMatchScoreDisplay(
+                                        match.homeGames,
+                                        match.awayGames,
+                                        tournament.matchSetupType,
+                                      )}
                                     </p>
                                     <p className="mt-1 text-[11px] text-zinc-600 dark:text-zinc-300">
                                       Schedule:{" "}
@@ -385,7 +397,11 @@ export default async function TournamentPublicPage({ params, searchParams }: Pag
                                         {formatMatchScheduleDisplay(match.scheduledAt, match.court)}
                                       </td>
                                       <td className="px-2 py-2">
-                                        {match.homeGames ?? "-"} - {match.awayGames ?? "-"}
+                                        {formatMatchScoreDisplay(
+                                          match.homeGames,
+                                          match.awayGames,
+                                          tournament.matchSetupType,
+                                        )}
                                       </td>
                                       <td className="px-2 py-2">
                                         {match.winnerId === match.homePlayerId
@@ -438,7 +454,12 @@ export default async function TournamentPublicPage({ params, searchParams }: Pag
                           )}
                         </p>
                         <p className="mt-2 text-sm font-semibold">
-                          Score: {match.homeGames ?? "-"} - {match.awayGames ?? "-"}
+                          Score:{" "}
+                          {formatMatchScoreDisplay(
+                            match.homeGames,
+                            match.awayGames,
+                            tournament.matchSetupType,
+                          )}
                         </p>
                         <p className="mt-1 text-[11px] text-zinc-600 dark:text-zinc-300">
                           Schedule: {formatMatchScheduleDisplay(match.scheduledAt, match.court)}
@@ -481,7 +502,11 @@ export default async function TournamentPublicPage({ params, searchParams }: Pag
                               {formatMatchScheduleDisplay(match.scheduledAt, match.court)}
                             </td>
                             <td className="px-2 py-2">
-                              {match.homeGames ?? "-"} - {match.awayGames ?? "-"}
+                              {formatMatchScoreDisplay(
+                                match.homeGames,
+                                match.awayGames,
+                                tournament.matchSetupType,
+                              )}
                             </td>
                             <td className="px-2 py-2">
                               {match.winnerId === match.homePlayerId

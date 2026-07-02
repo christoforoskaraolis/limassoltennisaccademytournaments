@@ -12,6 +12,8 @@ type MatchResultFormProps = {
   initialHomeGames: number | null;
   initialAwayGames: number | null;
   updateMatchResult: (formData: FormData) => Promise<void>;
+  scoreInputLabel?: string;
+  useSetsScoring?: boolean;
   compact?: boolean;
 };
 
@@ -25,6 +27,8 @@ export default function MatchResultForm({
   initialHomeGames,
   initialAwayGames,
   updateMatchResult,
+  scoreInputLabel = "Games",
+  useSetsScoring = false,
   compact = false,
 }: MatchResultFormProps) {
   return (
@@ -62,7 +66,13 @@ export default function MatchResultForm({
         name="homeGames"
         type="number"
         min={0}
-        placeholder="H"
+        max={useSetsScoring ? 2 : undefined}
+        placeholder={useSetsScoring ? "S" : "H"}
+        title={
+          useSetsScoring
+            ? "Sets won (valid: 2-0, 2-1, 1-2, 0-2)"
+            : `${scoreInputLabel} won (home)`
+        }
         defaultValue={initialHomeGames ?? ""}
         className={`rounded-md border border-black/15 px-2 py-1 text-xs dark:border-white/20 ${compact ? "w-14" : "w-16"}`}
       />
@@ -71,7 +81,13 @@ export default function MatchResultForm({
         name="awayGames"
         type="number"
         min={0}
-        placeholder="A"
+        max={useSetsScoring ? 2 : undefined}
+        placeholder={useSetsScoring ? "S" : "A"}
+        title={
+          useSetsScoring
+            ? "Sets won (valid: 2-0, 2-1, 1-2, 0-2)"
+            : `${scoreInputLabel} won (away)`
+        }
         defaultValue={initialAwayGames ?? ""}
         className={`rounded-md border border-black/15 px-2 py-1 text-xs dark:border-white/20 ${compact ? "w-14" : "w-16"}`}
       />

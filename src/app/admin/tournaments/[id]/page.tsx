@@ -4,10 +4,19 @@ import { revalidatePath } from "next/cache";
 import * as XLSX from "xlsx";
 
 import MatchResultForm from "@/app/components/MatchResultForm";
+import MatchSetupFields from "@/app/components/MatchSetupFields";
 import PlayerEditRow from "@/app/components/PlayerEditRow";
 import { EventType, MatchSetupType, TournamentFormat } from "@prisma/client";
 import { entriesLabel, eventTypeLabel, formatEntryName, parseEventType } from "@/lib/entry-name";
 import { buildScheduledAt, formatMatchScheduleDisplay, parseCourt } from "@/lib/match-schedule";
+import {
+  formatMatchScoreDisplay,
+  formatMatchSetupLabel,
+  isBestOfThreeSuperTiebreak,
+  parseMatchSetupType,
+  resolveNumberOfSets,
+  validateMatchScoreForSave,
+} from "@/lib/match-setup";
 import { prisma } from "@/lib/prisma";
 
 type PageProps = {
@@ -502,12 +511,13 @@ async function updateRoundRobinRules(formData: FormData) {
     ? Number.parseInt(qualifiedPerGroupRaw, 10)
     : null;
   const qualifiedPerGroup = Number.isNaN(parsedQualifiedPerGroup) ? null : parsedQualifiedPerGroup;
-  const matchSetupType =
-    matchSetupTypeRaw === MatchSetupType.SHORT_SET_TO_4
-      ? MatchSetupType.SHORT_SET_TO_4
-      : MatchSetupType.NORMAL_SET;
+  const matchSetupType = parseMatchSetupType(matchSetupTypeRaw);
   const parsedNumberOfSets = numberOfSetsRaw ? Number.parseInt(numberOfSetsRaw, 10) : null;
-  const numberOfSets = Number.isNaN(parsedNumberOfSets) ? null : parsedNumberOfSets;
+  const numberOfSets = isBestOfThreeSuperTiebreak(matchSetupType)
+    ? 3
+    : Number.isNaN(parsedNumberOfSets ?? Number.NaN)
+      ? null
+      : parsedNumberOfSets;
 
   const tournament = await prisma.tournament.findUnique({
     where: { id },
@@ -881,7 +891,7 @@ async function updateMatchResult(formData: FormData) {
 
   const tournament = await prisma.tournament.findUnique({
     where: { id: tournamentId },
-    select: { startsAt: true },
+    select: { startsAt: true, matchSetupType: true },
   });
 
   if (!tournament) {
@@ -904,6 +914,10 @@ async function updateMatchResult(formData: FormData) {
     const parsedAway = Number.parseInt(awayGamesRaw, 10);
 
     if (Number.isNaN(parsedHome) || Number.isNaN(parsedAway) || parsedHome < 0 || parsedAway < 0) {
+      return;
+    }
+
+    if (!validateMatchScoreForSave(parsedHome, parsedAway, tournament.matchSetupType)) {
       return;
     }
 
@@ -1103,6 +1117,7 @@ export default async function TournamentControlPage({ params, searchParams }: Pa
   };
 
   const isDoubles = tournament.eventType === EventType.DOUBLES;
+  const useSetsScoring = isBestOfThreeSuperTiebreak(tournament.matchSetupType);
   const entryLabel = entriesLabel(tournament.eventType);
   const entryLabelLower = entriesLabel(tournament.eventType, false);
 
@@ -1141,11 +1156,10 @@ export default async function TournamentControlPage({ params, searchParams }: Pa
                 </>
               )}
               {" • "}
-              {tournament.matchSetupType === MatchSetupType.SHORT_SET_TO_4
-                ? "Short Set (to 4)"
-                : "Normal Set"}
+              {formatMatchSetupLabel(tournament.matchSetupType)}
               {" • "}
-              {tournament.numberOfSets} set{tournament.numberOfSets > 1 ? "s" : ""}
+              {resolveNumberOfSets(tournament.matchSetupType, tournament.numberOfSets)} set
+              {resolveNumberOfSets(tournament.matchSetupType, tournament.numberOfSets) > 1 ? "s" : ""}
               {tournament.standingsUseGamePoints && " • Standings by game points"}
             </p>
           </div>
@@ -1515,6 +1529,7 @@ export default async function TournamentControlPage({ params, searchParams }: Pa
                                 initialHomeGames={match.homeGames}
                                 initialAwayGames={match.awayGames}
                                 updateMatchResult={updateMatchResult}
+                                useSetsScoring={useSetsScoring}
                               />
                             </td>
                           </tr>
@@ -1599,10 +1614,16 @@ export default async function TournamentControlPage({ params, searchParams }: Pa
                                     <th className="px-2 py-2">P</th>
                                     <th className="px-2 py-2">W</th>
                                     <th className="px-2 py-2">L</th>
-                                    <th className="px-2 py-2 hidden sm:table-cell">GW</th>
-                                    <th className="px-2 py-2 hidden sm:table-cell">GL</th>
+                                    <th className="px-2 py-2 hidden sm:table-cell">
+                                      {useSetsScoring ? "SW" : "GW"}
+                                    </th>
+                                    <th className="px-2 py-2 hidden sm:table-cell">
+                                      {useSetsScoring ? "SL" : "GL"}
+                                    </th>
                                     <th className="px-2 py-2 hidden sm:table-cell">Diff</th>
-                                    <th className="px-2 py-2 hidden sm:table-cell">Game Points</th>
+                                    <th className="px-2 py-2 hidden sm:table-cell">
+                                      {useSetsScoring ? "Set Points" : "Game Points"}
+                                    </th>
                                   </tr>
                                 </thead>
                                 <tbody>
@@ -1673,11 +1694,16 @@ export default async function TournamentControlPage({ params, searchParams }: Pa
                                               initialHomeGames={match.homeGames}
                                               initialAwayGames={match.awayGames}
                                               updateMatchResult={updateMatchResult}
+                                              useSetsScoring={useSetsScoring}
                                               compact
                                             />
                                           </td>
                                           <td className="px-2 py-2 hidden sm:table-cell">
-                                            {match.homeGames ?? "-"} - {match.awayGames ?? "-"}
+                                            {formatMatchScoreDisplay(
+                                              match.homeGames,
+                                              match.awayGames,
+                                              tournament.matchSetupType,
+                                            )}
                                           </td>
                                           <td className="px-2 py-2 hidden sm:table-cell">
                                             {match.winnerId === match.homePlayerId
@@ -1766,40 +1792,22 @@ export default async function TournamentControlPage({ params, searchParams }: Pa
                   <div className="sm:col-span-2 mt-2">
                     <h3 className="text-base font-medium">Match Setup and Scoring</h3>
                   </div>
-                  <label className="flex flex-col gap-2">
-                    <span className="text-sm text-zinc-700 dark:text-zinc-300">Set option</span>
-                    <select
-                      name="matchSetupType"
-                      defaultValue={tournament.matchSetupType}
-                      className="rounded-md border border-black/15 bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-zinc-500 dark:border-white/20"
-                    >
-                      <option value={MatchSetupType.NORMAL_SET}>Normal Set</option>
-                      <option value={MatchSetupType.SHORT_SET_TO_4}>Short Set (1 set to 4)</option>
-                    </select>
-                  </label>
-                  <label className="flex flex-col gap-2">
-                    <span className="text-sm text-zinc-700 dark:text-zinc-300">Number of sets</span>
-                    <input
-                      name="numberOfSets"
-                      type="number"
-                      min={1}
-                      max={5}
-                      defaultValue={tournament.numberOfSets}
-                      className="rounded-md border border-black/15 bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-zinc-500 dark:border-white/20"
-                    />
-                  </label>
-                  <label className="flex items-center gap-2 rounded-md border border-black/10 px-3 py-2 text-sm dark:border-white/20">
+                  <MatchSetupFields
+                    initialMatchSetupType={tournament.matchSetupType}
+                    initialNumberOfSets={tournament.numberOfSets}
+                  />
+                  <label className="flex items-center gap-2 rounded-md border border-black/10 px-3 py-2 text-sm dark:border-white/20 sm:col-span-2">
                     <input
                       type="checkbox"
                       name="standingsUseGamePoints"
                       defaultChecked={tournament.standingsUseGamePoints}
                     />
-                    <span>Use game points for standings (player gets points equal to games won)</span>
+                    <span>
+                      {isBestOfThreeSuperTiebreak(tournament.matchSetupType)
+                        ? "Use set points for standings (each player/team gets points equal to sets won)"
+                        : "Use game points for standings (player gets points equal to games won)"}
+                    </span>
                   </label>
-                  <div className="sm:col-span-2 rounded-md border border-black/10 bg-zinc-50 p-3 text-xs text-zinc-600 dark:border-white/15 dark:bg-zinc-900 dark:text-zinc-300">
-                    Short Set rule: 1 set up to 4 games. At 4-4, a tie-break is played to decide
-                    the winner.
-                  </div>
                   <div className="sm:col-span-2">
                     <button
                       type="submit"

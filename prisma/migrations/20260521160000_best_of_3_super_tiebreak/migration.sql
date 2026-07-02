@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "MatchSetupType" ADD VALUE 'BEST_OF_3_SUPER_TIEBREAK';
