@@ -8,9 +8,11 @@ type PlayerEditRowProps = {
   playerId: string;
   tournamentId: string;
   initialFullName: string;
+  initialPartnerName: string | null;
   initialGroupNumber: number | null;
   groupCount: number | null;
   showGroup: boolean;
+  isDoubles: boolean;
   updatePlayer: (formData: FormData) => Promise<void>;
   deletePlayer: (formData: FormData) => Promise<void>;
 };
@@ -19,21 +21,25 @@ export default function PlayerEditRow({
   playerId,
   tournamentId,
   initialFullName,
+  initialPartnerName,
   initialGroupNumber,
   groupCount,
   showGroup,
+  isDoubles,
   updatePlayer,
   deletePlayer,
 }: PlayerEditRowProps) {
   const [fullName, setFullName] = useState(initialFullName);
+  const [partnerName, setPartnerName] = useState(initialPartnerName ?? "");
   const [groupNumber, setGroupNumber] = useState(
     initialGroupNumber ? String(initialGroupNumber) : "",
   );
 
   useEffect(() => {
     setFullName(initialFullName);
+    setPartnerName(initialPartnerName ?? "");
     setGroupNumber(initialGroupNumber ? String(initialGroupNumber) : "");
-  }, [initialFullName, initialGroupNumber]);
+  }, [initialFullName, initialPartnerName, initialGroupNumber]);
 
   return (
     <>
@@ -42,9 +48,21 @@ export default function PlayerEditRow({
           value={fullName}
           onChange={(event) => setFullName(event.target.value)}
           required
+          placeholder={isDoubles ? "Player 1" : "Full name"}
           className="w-full min-w-[140px] rounded-md border border-black/15 bg-transparent px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-zinc-500 dark:border-white/20"
         />
       </td>
+      {isDoubles && (
+        <td className="px-2 py-2">
+          <input
+            value={partnerName}
+            onChange={(event) => setPartnerName(event.target.value)}
+            required
+            placeholder="Player 2"
+            className="w-full min-w-[140px] rounded-md border border-black/15 bg-transparent px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-zinc-500 dark:border-white/20"
+          />
+        </td>
+      )}
       {showGroup && (
         <td className="px-2 py-2">
           <select
@@ -67,6 +85,7 @@ export default function PlayerEditRow({
             <input type="hidden" name="playerId" value={playerId} />
             <input type="hidden" name="tournamentId" value={tournamentId} />
             <input type="hidden" name="fullName" value={fullName} />
+            {isDoubles && <input type="hidden" name="partnerName" value={partnerName} />}
             {showGroup && <input type="hidden" name="groupNumber" value={groupNumber} />}
             <button
               type="submit"

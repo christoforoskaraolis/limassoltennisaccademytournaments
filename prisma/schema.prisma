@@ -21,12 +21,18 @@ enum MatchSetupType {
   SHORT_SET_TO_4
 }
 
+enum EventType {
+  SINGLES
+  DOUBLES
+}
+
 model Tournament {
   id           String           @id @default(cuid())
   name         String
   organizer    String?
   category     String?
   maxPlayers   Int?
+  eventType    EventType        @default(SINGLES)
   format       TournamentFormat @default(KNOCKOUT)
   groupCount   Int?
   playersPerGroup Int?
@@ -48,6 +54,7 @@ model Tournament {
 model Player {
   id           String      @id @default(cuid())
   fullName     String
+  partnerName  String?
   countryCode  String?     @db.VarChar(3)
   ranking      Int?
   groupNumber  Int?

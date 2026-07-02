@@ -5,7 +5,8 @@ import * as XLSX from "xlsx";
 
 import MatchResultForm from "@/app/components/MatchResultForm";
 import PlayerEditRow from "@/app/components/PlayerEditRow";
-import { MatchSetupType, TournamentFormat } from "@prisma/client";
+import { EventType, MatchSetupType, TournamentFormat } from "@prisma/client";
+import { entriesLabel, eventTypeLabel, formatEntryName, parseEventType } from "@/lib/entry-name";
 import { buildScheduledAt, formatMatchScheduleDisplay, parseCourt } from "@/lib/match-schedule";
 import { prisma } from "@/lib/prisma";
 
@@ -80,7 +81,7 @@ async function qualifyPlayersForKnockout(formData: FormData) {
     groupPlayers.forEach((player) => {
       rows.set(player.id, {
         playerId: player.id,
-        playerName: player.fullName,
+        playerName: formatEntryName(player, tournament.eventType),
         played: 0,
         wins: 0,
         losses: 0,
@@ -191,7 +192,7 @@ async function generateKnockoutMatches(formData: FormData) {
     groupPlayers.forEach((player) => {
       rows.set(player.id, {
         playerId: player.id,
-        playerName: player.fullName,
+        playerName: formatEntryName(player, tournament.eventType),
         played: 0,
         wins: 0,
         losses: 0,
@@ -424,6 +425,7 @@ async function updateTournament(formData: FormData) {
   const category = String(formData.get("category") ?? "").trim();
   const maxPlayersRaw = String(formData.get("maxPlayers") ?? "").trim();
   const formatRaw = String(formData.get("format") ?? TournamentFormat.KNOCKOUT);
+  const eventTypeRaw = String(formData.get("eventType") ?? EventType.SINGLES);
   const location = String(formData.get("location") ?? "").trim();
   const startsAtRaw = String(formData.get("startsAt") ?? "");
   const endsAtRaw = String(formData.get("endsAt") ?? "");
@@ -440,6 +442,7 @@ async function updateTournament(formData: FormData) {
     formatRaw === TournamentFormat.ROUND_ROBIN_AND_KNOCKOUT
       ? TournamentFormat.ROUND_ROBIN_AND_KNOCKOUT
       : TournamentFormat.KNOCKOUT;
+  const eventType = parseEventType(eventTypeRaw);
 
   if (
     Number.isNaN(startsAt.getTime()) ||
@@ -457,6 +460,7 @@ async function updateTournament(formData: FormData) {
       organizer: organizer || null,
       category: category || null,
       maxPlayers,
+      eventType,
       format,
       groupCount: format === TournamentFormat.KNOCKOUT ? null : undefined,
       playersPerGroup: format === TournamentFormat.KNOCKOUT ? null : undefined,
@@ -552,8 +556,22 @@ async function addPlayer(formData: FormData) {
 
   const tournamentId = String(formData.get("tournamentId") ?? "");
   const fullName = String(formData.get("fullName") ?? "").trim();
+  const partnerName = String(formData.get("partnerName") ?? "").trim();
 
   if (!tournamentId || !fullName) {
+    return;
+  }
+
+  const tournament = await prisma.tournament.findUnique({
+    where: { id: tournamentId },
+    select: { eventType: true },
+  });
+
+  if (!tournament) {
+    return;
+  }
+
+  if (tournament.eventType === EventType.DOUBLES && !partnerName) {
     return;
   }
 
@@ -561,6 +579,7 @@ async function addPlayer(formData: FormData) {
     data: {
       tournamentId,
       fullName,
+      partnerName: tournament.eventType === EventType.DOUBLES ? partnerName : null,
     },
   });
 
@@ -573,6 +592,7 @@ async function updatePlayer(formData: FormData) {
   const playerId = String(formData.get("playerId") ?? "");
   const tournamentId = String(formData.get("tournamentId") ?? "");
   const fullName = String(formData.get("fullName") ?? "").trim();
+  const partnerName = String(formData.get("partnerName") ?? "").trim();
   const groupNumberRaw = String(formData.get("groupNumber") ?? "").trim();
 
   if (!playerId || !tournamentId || !fullName) {
@@ -581,10 +601,14 @@ async function updatePlayer(formData: FormData) {
 
   const tournament = await prisma.tournament.findUnique({
     where: { id: tournamentId },
-    select: { format: true, groupCount: true },
+    select: { format: true, groupCount: true, eventType: true },
   });
 
   if (!tournament) {
+    return;
+  }
+
+  if (tournament.eventType === EventType.DOUBLES && !partnerName) {
     return;
   }
 
@@ -614,6 +638,7 @@ async function updatePlayer(formData: FormData) {
     where: { id: playerId },
     data: {
       fullName,
+      partnerName: tournament.eventType === EventType.DOUBLES ? partnerName : null,
       ...(tournament.format === TournamentFormat.ROUND_ROBIN_AND_KNOCKOUT
         ? { groupNumber }
         : {}),
@@ -722,6 +747,15 @@ async function importPlayersFromExcel(formData: FormData) {
     return;
   }
 
+  const tournament = await prisma.tournament.findUnique({
+    where: { id: tournamentId },
+    select: { eventType: true },
+  });
+
+  if (!tournament) {
+    return;
+  }
+
   const bytes = await file.arrayBuffer();
   const workbook = XLSX.read(bytes, { type: "array" });
   const firstSheetName = workbook.SheetNames[0];
@@ -735,6 +769,50 @@ async function importPlayersFromExcel(formData: FormData) {
     header: 1,
     blankrows: false,
   });
+
+  if (tournament.eventType === EventType.DOUBLES) {
+    const seenPairs = new Set<string>();
+    const entries = rows
+      .map((row, rowIndex) => {
+        const playerOne = String(row[0] ?? "").trim();
+        const playerTwo = String(row[1] ?? "").trim();
+
+        if (!playerOne || !playerTwo) {
+          return null;
+        }
+
+        if (
+          rowIndex === 0 &&
+          ["player 1", "player1", "name", "full name", "player"].includes(playerOne.toLowerCase())
+        ) {
+          return null;
+        }
+
+        const pairKey = `${playerOne.toLowerCase()}__${playerTwo.toLowerCase()}`;
+        if (seenPairs.has(pairKey)) {
+          return null;
+        }
+
+        seenPairs.add(pairKey);
+        return { fullName: playerOne, partnerName: playerTwo };
+      })
+      .filter((entry): entry is { fullName: string; partnerName: string } => entry !== null);
+
+    if (entries.length === 0) {
+      return;
+    }
+
+    await prisma.player.createMany({
+      data: entries.map((entry) => ({
+        tournamentId,
+        fullName: entry.fullName,
+        partnerName: entry.partnerName,
+      })),
+    });
+
+    revalidatePath(`/admin/tournaments/${tournamentId}`);
+    return;
+  }
 
   const names = rows
     .map((row, rowIndex) => {
@@ -963,7 +1041,7 @@ export default async function TournamentControlPage({ params, searchParams }: Pa
     groupPlayers.forEach((player) => {
       rows.set(player.id, {
         playerId: player.id,
-        playerName: player.fullName,
+        playerName: formatEntryName(player, tournament.eventType),
         played: 0,
         wins: 0,
         losses: 0,
@@ -1024,6 +1102,10 @@ export default async function TournamentControlPage({ params, searchParams }: Pa
     return `${year}-${month}-${day}T${hours}:${minutes}`;
   };
 
+  const isDoubles = tournament.eventType === EventType.DOUBLES;
+  const entryLabel = entriesLabel(tournament.eventType);
+  const entryLabelLower = entriesLabel(tournament.eventType, false);
+
   return (
     <div className="min-h-screen bg-zinc-50 px-3 py-6 text-zinc-900 dark:bg-black dark:text-zinc-100 sm:px-6 sm:py-12">
       <main className="mx-auto w-full max-w-6xl">
@@ -1034,17 +1116,22 @@ export default async function TournamentControlPage({ params, searchParams }: Pa
               Tournament control panel
             </p>
             <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+              {eventTypeLabel(tournament.eventType)}
+              {" • "}
               {tournament.format === TournamentFormat.KNOCKOUT
                 ? "Knockout"
                 : "Round Robin + Knockout"}
               {" • "}
               {tournament.category ?? "No category"}
               {" • "}
-              {tournament.maxPlayers ? `${tournament.maxPlayers} players` : "No player limit set"}
+              {tournament.maxPlayers
+                ? `${tournament.maxPlayers} ${entryLabelLower}`
+                : `No ${entryLabelLower} limit set`}
               {tournament.format === TournamentFormat.ROUND_ROBIN_AND_KNOCKOUT && (
                 <>
                   {" • "}
-                  {tournament.groupCount ?? "-"} groups x {tournament.playersPerGroup ?? "-"} players
+                  {tournament.groupCount ?? "-"} groups x {tournament.playersPerGroup ?? "-"}{" "}
+                  {entryLabelLower}
                   {" • "}
                   {tournament.qualifiedPerGroup ?? "-"} qualify per group
                   {(tournament.qualifyBestSecond || tournament.qualifyBestThird) && " • "}
@@ -1100,7 +1187,7 @@ export default async function TournamentControlPage({ params, searchParams }: Pa
                   : "border border-black/10 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
               }`}
             >
-              Players
+              {entryLabel}
             </Link>
             <Link
               href={`/admin/tournaments/${tournament.id}?tab=schedule-results`}
@@ -1153,7 +1240,9 @@ export default async function TournamentControlPage({ params, searchParams }: Pa
                   />
                 </label>
                 <label className="flex flex-col gap-2">
-                  <span className="text-sm text-zinc-700 dark:text-zinc-300">Number of players</span>
+                  <span className="text-sm text-zinc-700 dark:text-zinc-300">
+                    Number of {entryLabelLower}
+                  </span>
                   <input
                     name="maxPlayers"
                     type="number"
@@ -1161,6 +1250,17 @@ export default async function TournamentControlPage({ params, searchParams }: Pa
                     defaultValue={tournament.maxPlayers ?? ""}
                     className="rounded-md border border-black/15 bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-zinc-500 dark:border-white/20"
                   />
+                </label>
+                <label className="flex flex-col gap-2">
+                  <span className="text-sm text-zinc-700 dark:text-zinc-300">Event type</span>
+                  <select
+                    name="eventType"
+                    defaultValue={tournament.eventType}
+                    className="rounded-md border border-black/15 bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-zinc-500 dark:border-white/20"
+                  >
+                    <option value={EventType.SINGLES}>Singles (1 vs 1)</option>
+                    <option value={EventType.DOUBLES}>Doubles (2 vs 2)</option>
+                  </select>
                 </label>
                 <label className="flex flex-col gap-2">
                   <span className="text-sm text-zinc-700 dark:text-zinc-300">Tournament type</span>
@@ -1209,7 +1309,7 @@ export default async function TournamentControlPage({ params, searchParams }: Pa
 
           {activeTab === "players" && (
             <>
-              <h2 className="mt-6 text-lg font-medium">Players</h2>
+              <h2 className="mt-6 text-lg font-medium">{entryLabel}</h2>
               {tournament.format === TournamentFormat.ROUND_ROBIN_AND_KNOCKOUT && (
                 <form action={autoAssignGroups} className="mt-4">
                   <input type="hidden" name="tournamentId" value={tournament.id} />
@@ -1217,28 +1317,42 @@ export default async function TournamentControlPage({ params, searchParams }: Pa
                     type="submit"
                     className="w-full rounded-md border border-black/15 px-4 py-2 text-sm font-medium hover:bg-black/5 sm:w-auto dark:border-white/20 dark:hover:bg-white/10"
                   >
-                    Auto-Assign Players to Groups
+                    Auto-Assign {entryLabel} to Groups
                   </button>
                 </form>
               )}
               <form action={addPlayer} className="mt-4 grid gap-4 sm:grid-cols-4">
                 <input type="hidden" name="tournamentId" value={tournament.id} />
-                <label className="flex flex-col gap-2 sm:col-span-3">
-                  <span className="text-sm text-zinc-700 dark:text-zinc-300">Full name</span>
+                <label className="flex flex-col gap-2 sm:col-span-2">
+                  <span className="text-sm text-zinc-700 dark:text-zinc-300">
+                    {isDoubles ? "Player 1" : "Full name"}
+                  </span>
                   <input
                     name="fullName"
                     required
                     className="rounded-md border border-black/15 bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-zinc-500 dark:border-white/20"
-                    placeholder="Carlos Alcaraz"
+                    placeholder={isDoubles ? "Maria Sakkari" : "Carlos Alcaraz"}
                   />
                 </label>
-                <div className="sm:col-span-1" />
+                {isDoubles ? (
+                  <label className="flex flex-col gap-2 sm:col-span-2">
+                    <span className="text-sm text-zinc-700 dark:text-zinc-300">Player 2</span>
+                    <input
+                      name="partnerName"
+                      required
+                      className="rounded-md border border-black/15 bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-zinc-500 dark:border-white/20"
+                      placeholder="Stefanos Tsitsipas"
+                    />
+                  </label>
+                ) : (
+                  <div className="sm:col-span-2" />
+                )}
                 <div className="sm:col-span-4">
                   <button
                     type="submit"
                     className="w-full rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 sm:w-auto dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
                   >
-                    Add Player
+                    Add {isDoubles ? "Pair" : "Player"}
                   </button>
                 </div>
               </form>
@@ -1250,7 +1364,8 @@ export default async function TournamentControlPage({ params, searchParams }: Pa
                 <input type="hidden" name="tournamentId" value={tournament.id} />
                 <label className="flex flex-col gap-2 sm:col-span-3">
                   <span className="text-sm text-zinc-700 dark:text-zinc-300">
-                    Import players from Excel (.xlsx, .xls)
+                    Import {entryLabelLower} from Excel (.xlsx, .xls)
+                    {isDoubles ? " — column A: player 1, column B: player 2" : ""}
                   </span>
                   <input
                     type="file"
@@ -1271,13 +1386,16 @@ export default async function TournamentControlPage({ params, searchParams }: Pa
               </form>
 
               {tournament.players.length === 0 ? (
-                <p className="mt-4 text-sm text-zinc-600 dark:text-zinc-300">No players added yet.</p>
+                <p className="mt-4 text-sm text-zinc-600 dark:text-zinc-300">
+                  No {entryLabelLower} added yet.
+                </p>
               ) : (
                 <div className="mt-4 overflow-x-auto">
                   <table className="w-full min-w-[640px] text-left text-sm">
                     <thead className="border-b border-black/10 dark:border-white/10">
                       <tr>
-                        <th className="px-2 py-2 font-medium">Name</th>
+                        <th className="px-2 py-2 font-medium">{isDoubles ? "Player 1" : "Name"}</th>
+                        {isDoubles && <th className="px-2 py-2 font-medium">Player 2</th>}
                         {tournament.format === TournamentFormat.ROUND_ROBIN_AND_KNOCKOUT && (
                           <th className="px-2 py-2 font-medium">Group</th>
                         )}
@@ -1291,9 +1409,11 @@ export default async function TournamentControlPage({ params, searchParams }: Pa
                             playerId={player.id}
                             tournamentId={tournament.id}
                             initialFullName={player.fullName}
+                            initialPartnerName={player.partnerName}
                             initialGroupNumber={player.groupNumber}
                             groupCount={tournament.groupCount}
                             showGroup={tournament.format === TournamentFormat.ROUND_ROBIN_AND_KNOCKOUT}
+                            isDoubles={isDoubles}
                             updatePlayer={updatePlayer}
                             deletePlayer={deletePlayer}
                           />
@@ -1344,7 +1464,7 @@ export default async function TournamentControlPage({ params, searchParams }: Pa
               )}
               {activeScheduleTab === "group" && tournament.players.length < 2 ? (
                 <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-300">
-                  Add at least 2 players before creating matches.
+                  Add at least 2 {entryLabelLower} before creating matches.
                 </p>
               ) : null}
 
@@ -1372,16 +1492,16 @@ export default async function TournamentControlPage({ params, searchParams }: Pa
                           .map((match) => (
                           <tr key={match.id} className="border-b border-black/5 dark:border-white/10">
                             <td className="px-2 py-2">{match.round}</td>
-                            <td className="px-2 py-2">{match.homePlayer.fullName}</td>
-                            <td className="px-2 py-2">{match.awayPlayer.fullName}</td>
+                            <td className="px-2 py-2">{formatEntryName(match.homePlayer, tournament.eventType)}</td>
+                            <td className="px-2 py-2">{formatEntryName(match.awayPlayer, tournament.eventType)}</td>
                             <td className="px-2 py-2 hidden sm:table-cell">
                               {formatMatchScheduleDisplay(match.scheduledAt, match.court)}
                             </td>
                             <td className="px-2 py-2 hidden sm:table-cell">
                               {match.winnerId === match.homePlayerId
-                                ? match.homePlayer.fullName
+                                ? formatEntryName(match.homePlayer, tournament.eventType)
                                 : match.winnerId === match.awayPlayerId
-                                  ? match.awayPlayer.fullName
+                                  ? formatEntryName(match.awayPlayer, tournament.eventType)
                                   : "-"}
                             </td>
                             <td className="px-2 py-2">
@@ -1445,7 +1565,7 @@ export default async function TournamentControlPage({ params, searchParams }: Pa
                       <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-300">
                         {tournament.players
                           .filter((player) => player.knockoutQualified)
-                          .map((player) => player.fullName)
+                          .map((player) => formatEntryName(player, tournament.eventType))
                           .join(", ") || "No players qualified yet."}
                       </p>
                     </div>
@@ -1475,7 +1595,7 @@ export default async function TournamentControlPage({ params, searchParams }: Pa
                                 <thead className="border-b border-black/10 dark:border-white/10">
                                   <tr>
                                     <th className="px-2 py-2">#</th>
-                                    <th className="px-2 py-2">Player</th>
+                                    <th className="px-2 py-2">{isDoubles ? "Pair" : "Player"}</th>
                                     <th className="px-2 py-2">P</th>
                                     <th className="px-2 py-2">W</th>
                                     <th className="px-2 py-2">L</th>
@@ -1533,8 +1653,12 @@ export default async function TournamentControlPage({ params, searchParams }: Pa
                                           key={match.id}
                                           className="border-b border-black/5 dark:border-white/10"
                                         >
-                                          <td className="px-2 py-2">{match.homePlayer.fullName}</td>
-                                          <td className="px-2 py-2">{match.awayPlayer.fullName}</td>
+                                          <td className="px-2 py-2">
+                                            {formatEntryName(match.homePlayer, tournament.eventType)}
+                                          </td>
+                                          <td className="px-2 py-2">
+                                            {formatEntryName(match.awayPlayer, tournament.eventType)}
+                                          </td>
                                           <td className="px-2 py-2 hidden sm:table-cell">
                                             {formatMatchScheduleDisplay(match.scheduledAt, match.court)}
                                           </td>
@@ -1557,9 +1681,9 @@ export default async function TournamentControlPage({ params, searchParams }: Pa
                                           </td>
                                           <td className="px-2 py-2 hidden sm:table-cell">
                                             {match.winnerId === match.homePlayerId
-                                              ? match.homePlayer.fullName
+                                              ? formatEntryName(match.homePlayer, tournament.eventType)
                                               : match.winnerId === match.awayPlayerId
-                                                ? match.awayPlayer.fullName
+                                                ? formatEntryName(match.awayPlayer, tournament.eventType)
                                                 : "-"}
                                           </td>
                                         </tr>

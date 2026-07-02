@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { revalidatePath } from "next/cache";
 
-import { TournamentFormat } from "@prisma/client";
+import { EventType, TournamentFormat } from "@prisma/client";
+import { entriesLabel, parseEventType } from "@/lib/entry-name";
 import { prisma } from "@/lib/prisma";
 
 async function createTournament(formData: FormData) {
@@ -12,6 +13,7 @@ async function createTournament(formData: FormData) {
   const category = String(formData.get("category") ?? "").trim();
   const maxPlayersRaw = String(formData.get("maxPlayers") ?? "").trim();
   const formatRaw = String(formData.get("format") ?? TournamentFormat.KNOCKOUT);
+  const eventTypeRaw = String(formData.get("eventType") ?? EventType.SINGLES);
   const location = String(formData.get("location") ?? "").trim();
   const startsAtRaw = String(formData.get("startsAt") ?? "");
   const endsAtRaw = String(formData.get("endsAt") ?? "");
@@ -28,6 +30,7 @@ async function createTournament(formData: FormData) {
     formatRaw === TournamentFormat.ROUND_ROBIN_AND_KNOCKOUT
       ? TournamentFormat.ROUND_ROBIN_AND_KNOCKOUT
       : TournamentFormat.KNOCKOUT;
+  const eventType = parseEventType(eventTypeRaw);
 
   if (
     Number.isNaN(startsAt.getTime()) ||
@@ -44,6 +47,7 @@ async function createTournament(formData: FormData) {
       organizer: organizer || null,
       category: category || null,
       maxPlayers,
+      eventType,
       format,
       location: location || null,
       startsAt,
@@ -98,6 +102,8 @@ export default async function AdminPage() {
               >
                 <td className="px-2 py-2">{tournament.name}</td>
                 <td className="px-2 py-2 hidden sm:table-cell">
+                  {tournament.eventType === EventType.DOUBLES ? "Doubles" : "Singles"}
+                  {" • "}
                   {tournament.format === TournamentFormat.KNOCKOUT
                     ? "Knockout"
                     : "Round Robin + Knockout"}
@@ -200,6 +206,18 @@ export default async function AdminPage() {
                 className="rounded-md border border-black/15 bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-zinc-500 dark:border-white/20"
                 placeholder="16"
               />
+            </label>
+
+            <label className="flex flex-col gap-2">
+              <span className="text-sm text-zinc-700 dark:text-zinc-300">Event type</span>
+              <select
+                name="eventType"
+                defaultValue={EventType.SINGLES}
+                className="rounded-md border border-black/15 bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-zinc-500 dark:border-white/20"
+              >
+                <option value={EventType.SINGLES}>Singles (1 vs 1)</option>
+                <option value={EventType.DOUBLES}>Doubles (2 vs 2)</option>
+              </select>
             </label>
 
             <label className="flex flex-col gap-2">
