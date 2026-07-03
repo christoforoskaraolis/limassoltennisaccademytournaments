@@ -1148,7 +1148,7 @@ export default async function TournamentControlPage({ params, searchParams }: Pa
                   {tournament.groupCount ?? "-"} groups x {tournament.playersPerGroup ?? "-"}{" "}
                   {entryLabelLower}
                   {" • "}
-                  {tournament.qualifiedPerGroup ?? "-"} qualify per group
+                  {tournament.qualifiedPerGroup ?? "-"} {entryLabelLower} qualify per group
                   {(tournament.qualifyBestSecond || tournament.qualifyBestThird) && " • "}
                   {tournament.qualifyBestSecond && "Best second-place qualify"}
                   {tournament.qualifyBestSecond && tournament.qualifyBestThird && " + "}
@@ -1575,7 +1575,7 @@ export default async function TournamentControlPage({ params, searchParams }: Pa
                     </form>
                     <div className="mt-3">
                       <p className="text-xs font-medium text-zinc-700 dark:text-zinc-200">
-                        Qualified Players
+                        Qualified {entryLabelLower}
                       </p>
                       <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-300">
                         {tournament.players
@@ -1752,7 +1752,9 @@ export default async function TournamentControlPage({ params, searchParams }: Pa
                     />
                   </label>
                   <label className="flex flex-col gap-2">
-                    <span className="text-sm text-zinc-700 dark:text-zinc-300">Players per group</span>
+                    <span className="text-sm text-zinc-700 dark:text-zinc-300">
+                      {isDoubles ? "Pairs per group" : "Players per group"}
+                    </span>
                     <input
                       name="playersPerGroup"
                       type="number"
@@ -1763,7 +1765,7 @@ export default async function TournamentControlPage({ params, searchParams }: Pa
                   </label>
                   <label className="flex flex-col gap-2">
                     <span className="text-sm text-zinc-700 dark:text-zinc-300">
-                      Qualified players per group
+                      {isDoubles ? "Qualified pairs per group" : "Qualified players per group"}
                     </span>
                     <input
                       name="qualifiedPerGroup"
@@ -1779,7 +1781,11 @@ export default async function TournamentControlPage({ params, searchParams }: Pa
                       name="qualifyBestSecond"
                       defaultChecked={tournament.qualifyBestSecond}
                     />
-                    <span>Qualify best second-place players across all groups</span>
+                    <span>
+                      {isDoubles
+                        ? "Qualify best second-place pairs across all groups"
+                        : "Qualify best second-place players across all groups"}
+                    </span>
                   </label>
                   <label className="flex items-center gap-2 rounded-md border border-black/10 px-3 py-2 text-sm dark:border-white/20">
                     <input
@@ -1787,7 +1793,11 @@ export default async function TournamentControlPage({ params, searchParams }: Pa
                       name="qualifyBestThird"
                       defaultChecked={tournament.qualifyBestThird}
                     />
-                    <span>Qualify best third-place players across all groups</span>
+                    <span>
+                      {isDoubles
+                        ? "Qualify best third-place pairs across all groups"
+                        : "Qualify best third-place players across all groups"}
+                    </span>
                   </label>
                   <div className="sm:col-span-2 mt-2">
                     <h3 className="text-base font-medium">Match Setup and Scoring</h3>

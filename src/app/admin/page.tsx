@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { revalidatePath } from "next/cache";
 
+import DeleteTournamentButton from "@/app/components/DeleteTournamentButton";
 import { EventType, TournamentFormat } from "@prisma/client";
 import { entriesLabel, parseEventType } from "@/lib/entry-name";
 import { prisma } from "@/lib/prisma";
@@ -58,6 +59,32 @@ async function createTournament(formData: FormData) {
   revalidatePath("/admin");
 }
 
+async function deleteTournament(formData: FormData) {
+  "use server";
+
+  const tournamentId = String(formData.get("tournamentId") ?? "");
+
+  if (!tournamentId) {
+    return;
+  }
+
+  const tournament = await prisma.tournament.findUnique({
+    where: { id: tournamentId },
+    select: { startsAt: true },
+  });
+
+  if (!tournament || tournament.startsAt <= new Date()) {
+    return;
+  }
+
+  await prisma.tournament.delete({
+    where: { id: tournamentId },
+  });
+
+  revalidatePath("/admin");
+  revalidatePath("/");
+}
+
 export default async function AdminPage() {
   const tournaments = await prisma.tournament.findMany({
     orderBy: { startsAt: "desc" },
@@ -72,6 +99,7 @@ export default async function AdminPage() {
   const renderTournamentTable = (
     items: typeof tournaments,
     emptyMessage: string,
+    showDelete = false,
   ) => {
     if (items.length === 0) {
       return <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-300">{emptyMessage}</p>;
@@ -124,12 +152,21 @@ export default async function AdminPage() {
                 <td className="px-2 py-2 hidden sm:table-cell">{tournament.startsAt.toLocaleString()}</td>
                 <td className="px-2 py-2 hidden sm:table-cell">{tournament.endsAt.toLocaleString()}</td>
                 <td className="px-2 py-2">
-                  <Link
-                    href={`/admin/tournaments/${tournament.id}`}
-                    className="rounded-md border border-black/10 px-2 py-1 text-xs hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
-                  >
-                    Open
-                  </Link>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Link
+                      href={`/admin/tournaments/${tournament.id}`}
+                      className="rounded-md border border-black/10 px-2 py-1 text-xs hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+                    >
+                      Open
+                    </Link>
+                    {showDelete && (
+                      <DeleteTournamentButton
+                        tournamentId={tournament.id}
+                        tournamentName={tournament.name}
+                        deleteTournament={deleteTournament}
+                      />
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}
@@ -272,7 +309,7 @@ export default async function AdminPage() {
 
         <section className="mt-6 rounded-xl border border-black/10 bg-white p-4 dark:border-white/10 dark:bg-zinc-950 sm:mt-8 sm:p-6">
           <h2 className="text-lg font-medium">Upcoming tournaments</h2>
-          {renderTournamentTable(upcomingTournaments, "No upcoming tournaments yet.")}
+          {renderTournamentTable(upcomingTournaments, "No upcoming tournaments yet.", true)}
         </section>
 
         <section className="mt-6 rounded-xl border border-black/10 bg-white p-4 dark:border-white/10 dark:bg-zinc-950 sm:mt-8 sm:p-6">
