@@ -18,45 +18,19 @@ import {
   validateMatchScoreForSave,
 } from "@/lib/match-setup";
 import { prisma } from "@/lib/prisma";
+import {
+  buildKnockoutBracketMatches,
+  buildStandingsByGroup,
+  computeQualifiedPlayerIds,
+  getQualifiedStandingRows,
+  sortStandingRows,
+  type StandingRow,
+} from "@/lib/tournament-standings";
 
 type PageProps = {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ tab?: string; scheduleTab?: string }>;
+  searchParams?: Promise<{ tab?: string; scheduleTab?: string; knockoutError?: string }>;
 };
-
-type StandingRow = {
-  playerId: string;
-  playerName: string;
-  played: number;
-  wins: number;
-  losses: number;
-  gamesWon: number;
-  gamesLost: number;
-  gamePoints: number;
-};
-
-function sortStandingRows(rows: StandingRow[], useGamePoints: boolean) {
-  return [...rows].sort((a, b) => {
-    if (useGamePoints && b.gamePoints !== a.gamePoints) {
-      return b.gamePoints - a.gamePoints;
-    }
-    if (b.wins !== a.wins) return b.wins - a.wins;
-    const aDiff = a.gamesWon - a.gamesLost;
-    const bDiff = b.gamesWon - b.gamesLost;
-    if (bDiff !== aDiff) return bDiff - aDiff;
-    if (b.gamesWon !== a.gamesWon) return b.gamesWon - a.gamesWon;
-    return a.playerName.localeCompare(b.playerName);
-  });
-}
-
-function sortByBestDiff(a: StandingRow, b: StandingRow) {
-  const diffA = a.gamesWon - a.gamesLost;
-  const diffB = b.gamesWon - b.gamesLost;
-  if (diffB !== diffA) return diffB - diffA;
-  if (b.gamesWon !== a.gamesWon) return b.gamesWon - a.gamesWon;
-  if (b.wins !== a.wins) return b.wins - a.wins;
-  return a.playerName.localeCompare(b.playerName);
-}
 
 async function qualifyPlayersForKnockout(formData: FormData) {
   "use server";
@@ -76,83 +50,8 @@ async function qualifyPlayersForKnockout(formData: FormData) {
     return;
   }
 
-  const playersByGroup = new Map<number, typeof tournament.players>();
-  for (const player of tournament.players) {
-    if (!player.groupNumber) continue;
-    const list = playersByGroup.get(player.groupNumber) ?? [];
-    list.push(player);
-    playersByGroup.set(player.groupNumber, list);
-  }
-
-  const standingsByGroup = new Map<number, StandingRow[]>();
-  for (const [groupNumber, groupPlayers] of playersByGroup.entries()) {
-    const rows = new Map<string, StandingRow>();
-    groupPlayers.forEach((player) => {
-      rows.set(player.id, {
-        playerId: player.id,
-        playerName: formatEntryName(player, tournament.eventType),
-        played: 0,
-        wins: 0,
-        losses: 0,
-        gamesWon: 0,
-        gamesLost: 0,
-        gamePoints: 0,
-      });
-    });
-
-    for (const match of tournament.matches) {
-      const home = rows.get(match.homePlayerId);
-      const away = rows.get(match.awayPlayerId);
-      if (!home || !away) continue;
-      if (match.homeGames === null || match.awayGames === null) continue;
-
-      home.played += 1;
-      away.played += 1;
-      home.gamesWon += match.homeGames;
-      home.gamesLost += match.awayGames;
-      away.gamesWon += match.awayGames;
-      away.gamesLost += match.homeGames;
-
-      if (tournament.standingsUseGamePoints) {
-        home.gamePoints += match.homeGames;
-        away.gamePoints += match.awayGames;
-      }
-
-      if (match.homeGames > match.awayGames) {
-        home.wins += 1;
-        away.losses += 1;
-      } else if (match.awayGames > match.homeGames) {
-        away.wins += 1;
-        home.losses += 1;
-      }
-    }
-
-    standingsByGroup.set(groupNumber, sortStandingRows([...rows.values()], tournament.standingsUseGamePoints));
-  }
-
-  const qualifiedIds = new Set<string>();
-  const perGroup = tournament.qualifiedPerGroup ?? 1;
-
-  for (const rows of standingsByGroup.values()) {
-    rows.slice(0, perGroup).forEach((row) => qualifiedIds.add(row.playerId));
-  }
-
-  const secondPlaceRows = [...standingsByGroup.values()]
-    .map((rows) => rows[1])
-    .filter((row): row is StandingRow => Boolean(row));
-  const thirdPlaceRows = [...standingsByGroup.values()]
-    .map((rows) => rows[2])
-    .filter((row): row is StandingRow => Boolean(row));
-
-  if (tournament.qualifyBestSecond && secondPlaceRows.length > 0) {
-    secondPlaceRows.sort(sortByBestDiff);
-    qualifiedIds.add(secondPlaceRows[0].playerId);
-  }
-
-  if (tournament.qualifyBestThird && thirdPlaceRows.length > 0) {
-    thirdPlaceRows.sort(sortByBestDiff);
-    qualifiedIds.add(thirdPlaceRows[0].playerId);
-  }
+  const standingsByGroup = buildStandingsByGroup(tournament);
+  const qualifiedIds = computeQualifiedPlayerIds(tournament, standingsByGroup);
 
   await prisma.$transaction([
     prisma.player.updateMany({
@@ -187,106 +86,59 @@ async function generateKnockoutMatches(formData: FormData) {
     return;
   }
 
-  const playersByGroup = new Map<number, typeof tournament.players>();
-  for (const player of tournament.players) {
-    if (!player.groupNumber) continue;
-    const list = playersByGroup.get(player.groupNumber) ?? [];
-    list.push(player);
-    playersByGroup.set(player.groupNumber, list);
-  }
+  let qualifiedIds = new Set(
+    tournament.players.filter((player) => player.knockoutQualified).map((player) => player.id),
+  );
 
-  const standingsByGroup = new Map<number, StandingRow[]>();
-  for (const [groupNumber, groupPlayers] of playersByGroup.entries()) {
-    const rows = new Map<string, StandingRow>();
-    groupPlayers.forEach((player) => {
-      rows.set(player.id, {
-        playerId: player.id,
-        playerName: formatEntryName(player, tournament.eventType),
-        played: 0,
-        wins: 0,
-        losses: 0,
-        gamesWon: 0,
-        gamesLost: 0,
-        gamePoints: 0,
-      });
-    });
+  if (qualifiedIds.size === 0) {
+    const standingsByGroup = buildStandingsByGroup(tournament);
+    qualifiedIds = computeQualifiedPlayerIds(tournament, standingsByGroup);
 
-    for (const match of tournament.matches) {
-      const home = rows.get(match.homePlayerId);
-      const away = rows.get(match.awayPlayerId);
-      if (!home || !away) continue;
-      if (match.homeGames === null || match.awayGames === null) continue;
-
-      home.played += 1;
-      away.played += 1;
-      home.gamesWon += match.homeGames;
-      home.gamesLost += match.awayGames;
-      away.gamesWon += match.awayGames;
-      away.gamesLost += match.homeGames;
-
-      if (tournament.standingsUseGamePoints) {
-        home.gamePoints += match.homeGames;
-        away.gamePoints += match.awayGames;
-      }
-
-      if (match.homeGames > match.awayGames) {
-        home.wins += 1;
-        away.losses += 1;
-      } else if (match.awayGames > match.homeGames) {
-        away.wins += 1;
-        home.losses += 1;
-      }
+    if (qualifiedIds.size > 0) {
+      await prisma.$transaction([
+        prisma.player.updateMany({
+          where: { tournamentId },
+          data: { knockoutQualified: false },
+        }),
+        prisma.player.updateMany({
+          where: { id: { in: [...qualifiedIds] } },
+          data: { knockoutQualified: true },
+        }),
+      ]);
     }
-
-    standingsByGroup.set(groupNumber, sortStandingRows([...rows.values()], tournament.standingsUseGamePoints));
   }
 
-  const firstPlaceRows = [...standingsByGroup.values()]
-    .map((rows) => rows[0])
-    .filter((row): row is StandingRow => Boolean(row));
-  const secondPlaceRows = [...standingsByGroup.values()]
-    .map((rows) => rows[1])
-    .filter((row): row is StandingRow => Boolean(row));
+  const qualifiedRows = getQualifiedStandingRows(tournament, qualifiedIds);
+  const bracket = buildKnockoutBracketMatches(qualifiedRows);
 
-  if (firstPlaceRows.length < 3 || secondPlaceRows.length === 0) {
-    return;
+  if ("error" in bracket) {
+    redirect(
+      `/admin/tournaments/${tournamentId}?tab=schedule-results&scheduleTab=knockout&knockoutError=${encodeURIComponent(bracket.error)}`,
+    );
   }
-
-  firstPlaceRows.sort(sortByBestDiff);
-  secondPlaceRows.sort(sortByBestDiff);
-
-  const bestFirst = firstPlaceRows[0];
-  const otherFirstA = firstPlaceRows[1];
-  const otherFirstB = firstPlaceRows[2];
-  const bestSecond = secondPlaceRows[0];
 
   await prisma.match.deleteMany({
     where: {
       tournamentId,
-      round: {
-        in: ["Knockout SF1", "Knockout SF2"],
+      NOT: {
+        round: {
+          startsWith: "Group ",
+        },
       },
     },
   });
 
   await prisma.match.createMany({
-    data: [
-      {
-        tournamentId,
-        round: "Knockout SF1",
-        homePlayerId: bestFirst.playerId,
-        awayPlayerId: bestSecond.playerId,
-      },
-      {
-        tournamentId,
-        round: "Knockout SF2",
-        homePlayerId: otherFirstA.playerId,
-        awayPlayerId: otherFirstB.playerId,
-      },
-    ],
+    data: bracket.matches.map((match) => ({
+      tournamentId,
+      round: match.round,
+      homePlayerId: match.homePlayerId,
+      awayPlayerId: match.awayPlayerId,
+    })),
   });
 
   revalidatePath(`/admin/tournaments/${tournamentId}`);
+  revalidatePath(`/tournaments/${tournamentId}`);
   redirect(`/admin/tournaments/${tournamentId}?tab=schedule-results&scheduleTab=knockout`);
 }
 
@@ -1014,6 +866,7 @@ export default async function TournamentControlPage({ params, searchParams }: Pa
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const rawTab = resolvedSearchParams?.tab;
   const rawScheduleTab = resolvedSearchParams?.scheduleTab;
+  const knockoutError = resolvedSearchParams?.knockoutError;
   const activeTab =
     rawTab === "players" || rawTab === "schedule-results" || rawTab === "rules"
       ? rawTab
@@ -1543,9 +1396,18 @@ export default async function TournamentControlPage({ params, searchParams }: Pa
                   <div className="mt-6 rounded-md border border-black/10 p-4 dark:border-white/10">
                     <h3 className="text-sm font-medium">Qualification</h3>
                     <p className="mt-2 text-xs text-zinc-600 dark:text-zinc-300">
-                      Applies your rules: top players per group plus optional best second/third
-                      (ranked by best game difference).
+                      Step 1: qualify {entryLabelLower} from group standings. Step 2: generate
+                      knockout matches from those qualifiers.
                     </p>
+                    <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                      Knockout bracket supports 2, 4, or 8 qualifiers (final, two semifinals, or four
+                      quarterfinals). If you skip step 1, step 2 applies your rules automatically.
+                    </p>
+                    {knockoutError && (
+                      <p className="mt-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
+                        {knockoutError}
+                      </p>
+                    )}
                     <form action={qualifyPlayersForKnockout} className="mt-3">
                       <input type="hidden" name="tournamentId" value={tournament.id} />
                       <button
